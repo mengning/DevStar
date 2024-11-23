@@ -26,7 +26,11 @@ powershell wsl --install -d Ubuntu-20.04
 sudo apt update
 sudo apt install docker.io
 sudo docker pull devstar.cn/devstar/devstar-studio:latest
-sudo docker run --restart=always --name devstar-studio -d  -p 8080:3000 -v /var/run/docker.sock:/var/run/docker.sock devstar.cn/devstar/devstar-studio:latest
+# 创建devstar_data目录用于持久化存储DevStar相关的配置和用户数据
+mkdir ~/devstar_data
+# 启动devstar-studio容器
+sudo docker run --restart=always --name devstar-studio -d  -p 8080:3000 -v /var/run/docker.sock:/var/run/docker.sock -v ~/devstar_data:/var/lib/gitea -v ~/devstar_data:/etc/gitea devstar.cn/devstar/devstar-studio:latest
+# 打开 `http://localhost:8080` 完成安装。
+# 停止并删除devstar-studio容器
+sudo docker stop devstar-studio && sudo docker rm devstar-studio
 ```
-
-打开 `http://localhost:8080` 完成安装。
