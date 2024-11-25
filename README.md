@@ -34,3 +34,7 @@ sudo docker run --restart=always --name devstar-studio -d  -p 8080:3000 -v /var/
 # 停止并删除devstar-studio容器
 sudo docker stop devstar-studio && sudo docker rm devstar-studio
 ```
+
+## License Agreement
+
+The standalone version of DevStar Studio can be deployed for free, while deployment based on Kubernetes in a cloud-native environment requires commercial authorization (we are actively seeking agents; please contact contact@mengning.com.cn). It is especially noted that both the standalone version and the Kubernetes cloud-native deployment have the same features, but the standalone version is limited in capacity and scalability.
