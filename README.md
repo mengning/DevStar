@@ -6,9 +6,9 @@ DevStar Studio是一个通用的一站式软件研发平台，但它最初的目
 
 DevStar Studio的愿景：服务全球软件开发者！
 
-如果你想试用在线演示或者使用免费的DevStar服务（有数量限制），请访问 [devstar.cn](https://devstar.cn/)。
+如果你想试用在线演示或者使用免费的DevStar服务（有数量限制），请访问 [devstar.cn](https://devstar.cn/) 或者在VS Code插件市场搜索DevStar。
 
-如果你想快速本地部署自己的DevStar实例免费试用或者报告问题，请访问 [https://github.com/mengning/DevStar](https://github.com/mengning/DevStar)。
+如果您在使用DevStar中有任何问题欢迎提交[Bug Report](https://github.com/mengning/DevStar/issues/new)。
 
 如果你是云服务厂商想为您的客户提供DevStar实例请联系contact@mengning.com.cn
 
@@ -37,4 +37,5 @@ sudo docker stop devstar-studio && sudo docker rm devstar-studio
 
 ## License Agreement
 
-The standalone version of DevStar Studio can be deployed for free, while deployment based on Kubernetes in a cloud-native environment requires commercial authorization (we are actively seeking agents; please contact contact@mengning.com.cn). It is especially noted that both the standalone version and the Kubernetes cloud-native deployment have the same features, but the standalone version is limited in capacity and scalability.
+* FREE USE - Only one instance is allowed, and the number of users is limited to less than 50, excluding technical support services.
+* The standalone version of DevStar Studio can be deployed for free, while deployment based on Kubernetes in a cloud-native environment requires commercial authorization . It is especially noted that both the standalone version and the Kubernetes cloud-native deployment have the same features, but the standalone version is limited in capacity and scalability.
