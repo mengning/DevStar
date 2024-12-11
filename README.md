@@ -1,5 +1,17 @@
 # DevStar Studio
 
+DevStar Studio is a Gitea distribution that provides a development environment execution engine (DevEnv) based on Git code repository hosting. It deeply integrates with VS Code plugins or custom IDEs, forming an ecosystem platform that flexibly adapts basic software tools, thereby offering intelligent (AI-powered code models), secure (fully cloud-native), and one-stop ready-to-use CI/CD lifecycle development platforms for developer users.
+
+DevStar Studio is a general-purpose, one-stop software development platform, but its initial goal is to serve developers in embedded software development scenarios such as automotive software, consumer electronics, and intelligent manufacturing.
+
+Vision of DevStar Studio: To serve software developers worldwide!
+
+If you want to try an online demo or use the free DevStar service (with usage limits), please visit [devstar.cn](https://devstar.cn/) or search for DevStar in the VS Code plugin marketplace.
+
+If you encounter any issues while using DevStar, feel free to submit a [Bug Report](https://github.com/mengning/DevStar/issues/new).
+
+If you are a cloud service provider looking to offer DevStar instances to your customers, please contact contact@mengning.com.cn.
+
 DevStar Studio 是一个Gitea 发行版，在Git代码仓库托管的基础上提供了开发环境DevEnv执行引擎，与VS Code插件或自定义IDE深度融合，形成灵活适配基础软件工具的生态平台，从而为开发者用户提供智能（代码大模型AI+）、安全（完全云原生）、一站式开箱即用的CI/CD全生命周期研发平台。
 
 DevStar Studio是一个通用的一站式软件研发平台，但它最初的目标是服务于汽车软件、消费电子、智能制造等嵌入式软件研发场景中的开发者。
