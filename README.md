@@ -26,17 +26,16 @@ DevStar Studio的愿景：服务全球软件开发者！
 
 ## Quick Start 快速开始
 
-如果您是在Windows环境下，请先运行如下命令：
+如果您是在Windows环境下，请在cmd命令行下先运行如下命令：
 
 ```
-powershell wsl --install -d Ubuntu-20.04
+wsl --install -d Ubuntu-20.04 && wsl --setdefault Ubuntu-20.04
 ```
 
 在Ubuntu-20.04下完成安装：
 
 ```bash
-sudo apt update
-sudo apt install docker.io
+sudo apt update && sudo apt install docker.io
 sudo docker pull devstar.cn/devstar/devstar-studio:latest
 # 创建devstar_data目录用于持久化存储DevStar相关的配置和用户数据
 mkdir ~/devstar_data
