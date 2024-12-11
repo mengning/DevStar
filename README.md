@@ -42,8 +42,12 @@ mkdir ~/devstar_data
 # 启动devstar-studio容器
 sudo docker run --restart=always --name devstar-studio -d  -p 8080:3000 -v /var/run/docker.sock:/var/run/docker.sock -v ~/devstar_data:/var/lib/gitea -v ~/devstar_data:/etc/gitea devstar.cn/devstar/devstar-studio:latest
 # 打开 `http://localhost:8080` 完成安装。
+
+
+# 查看devstar-studio容器的运行日志
+sudo docker logs devstar-studio
 # 停止并删除devstar-studio容器
-sudo docker stop devstar-studio && sudo docker rm devstar-studio
+sudo docker stop devstar-studio && sudo docker rm -f devstar-studio
 ```
 
 ## License Agreement
