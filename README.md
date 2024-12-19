@@ -48,6 +48,18 @@ sudo docker run --restart=always --name devstar-studio -d  -p 8080:3000 -v /var/
 sudo docker logs devstar-studio
 # 停止并删除devstar-studio容器
 sudo docker stop devstar-studio && sudo docker rm -f devstar-studio
+# NEW Install & Usage
+$ wget -c https://devstar.cn/assets/install.sh && chmod +x install.sh && sudo ./install.sh
+$ devstar help
+------------------------------------------------------------------------
+DevStar usage help:
+  help, -h, --help,     Help information
+  start                 Start DevStar Studio
+      --port <arg>      Specify the port number (default port is 8080)
+  stop                  Stop the running DevStar Studio
+  logs                  View the logs of the devstar-studio container
+  clean                 Clean up the running DevStar Studio, including deleting user data. Please use with caution.
+------------------------------------------------------------------------
 ```
 
 ## License Agreement
