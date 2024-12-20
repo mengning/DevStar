@@ -29,28 +29,14 @@ DevStar Studio的愿景：服务全球软件开发者！
 如果您是在Windows环境下，请在cmd命令行下先运行如下命令：
 
 ```
-wsl --install -d Ubuntu-20.04 && wsl --setdefault Ubuntu-20.04
+wsl --install -d Ubuntu-20.04
 ```
 
 在Ubuntu-20.04下完成安装：
 
 ```bash
-sudo apt update && sudo apt install docker.io
-sudo docker pull devstar.cn/devstar/devstar-studio:latest
-# 创建devstar_data目录用于持久化存储DevStar相关的配置和用户数据
-mkdir ~/devstar_data
-# 启动devstar-studio容器
-sudo docker run --restart=always --name devstar-studio -d  -p 8080:3000 -v /var/run/docker.sock:/var/run/docker.sock -v ~/devstar_data:/var/lib/gitea -v ~/devstar_data:/etc/gitea devstar.cn/devstar/devstar-studio:latest
-# 打开 `http://localhost:8080` 完成安装。
-
-
-# 查看devstar-studio容器的运行日志
-sudo docker logs devstar-studio
-# 停止并删除devstar-studio容器
-sudo docker stop devstar-studio && sudo docker rm -f devstar-studio
-# NEW Install & Usage
-$ wget -c https://devstar.cn/assets/install.sh && chmod +x install.sh && sudo ./install.sh
-$ devstar help
+wget -c https://devstar.cn/assets/install.sh && chmod +x install.sh && sudo ./install.sh
+devstar help
 ------------------------------------------------------------------------
 DevStar usage help:
   help, -h, --help,     Help information
@@ -60,7 +46,14 @@ DevStar usage help:
   logs                  View the logs of the devstar-studio container
   clean                 Clean up the running DevStar Studio, including deleting user data. Please use with caution.
 ------------------------------------------------------------------------
+sudo devstar start
+...
+-------------------------------------------------------
+DevStar started in http://localhost:8080 successfully!
+-------------------------------------------------------
 ```
+
+然后通过浏览器打开http://localhost:8080 完成后配置安装，默认第一个注册用户为管理员账户。
 
 ## License Agreement
 
