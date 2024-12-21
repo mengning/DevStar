@@ -25,3 +25,18 @@ jobs:
         run: |
           wget -c https://gitee.com/devstar/devstar/raw/add-intaller-tool/public/assets/install.sh && chmod +x install.sh && sudo ./install.sh
           sudo devstar start --version=latest --port=8888
+      
+      # Wait for a few seconds to ensure the service has time to start  
+      - name: Wait for the service to start  
+        run: sleep 10  # 你可以根据实际需要调整等待时间  
+
+      # Check if the service is accessible  
+      - name: Verify HTTP accessibility  
+        run: |  
+          RESPONSE=$(curl --write-out '%{http_code}' --silent --output /dev/null http://localhost:8888)  
+          if [ "$RESPONSE" -eq 200 ]; then  
+            echo "Service is accessible!"  
+          else  
+            echo "Service is not accessible. HTTP response code: $RESPONSE"  
+            exit 1  
+          fi 
