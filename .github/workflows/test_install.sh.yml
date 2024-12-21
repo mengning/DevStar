@@ -28,7 +28,7 @@ jobs:
       
       # Wait for a few seconds to ensure the service has time to start  
       - name: Wait for the service to start  
-        run: sleep 10  # 你可以根据实际需要调整等待时间  
+        run: sleep 30  # 你可以根据实际需要调整等待时间  
 
       # Check if the service is accessible  
       - name: Verify HTTP accessibility  
@@ -39,4 +39,4 @@ jobs:
           else  
             echo "Service is not accessible. HTTP response code: $RESPONSE"  
             exit 1  
-          fi 
+          fi  
