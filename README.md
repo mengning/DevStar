@@ -41,7 +41,8 @@ devstar help
 DevStar usage help:
   help, -h, --help,     Help information
   start                 Start DevStar Studio
-      --port <arg>      Specify the port number (default port is 8080)
+      --port=<arg>      Specify the port number (default port is 8080)
+      --version=<arg>   Specify the DevStar Studio Image Version (default verson is latest)
   stop                  Stop the running DevStar Studio
   logs                  View the logs of the devstar-studio container
   clean                 Clean up the running DevStar Studio, including deleting user data. Please use with caution.
