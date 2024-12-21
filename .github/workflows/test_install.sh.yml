@@ -23,12 +23,12 @@ jobs:
       # Runs a set of commands using the runners shell
       - name: Run a multi-line script
         run: |
-          wget -c https://gitee.com/devstar/devstar/raw/add-intaller-tool/public/assets/install.sh && chmod +x install.sh && sudo ./install.sh
+          wget -c https://gitee.com/devstar/devstar/raw/dev/public/assets/install.sh && chmod +x install.sh && sudo ./install.sh
           sudo devstar start --version=latest --port=8888
       
       # Wait for a few seconds to ensure the service has time to start  
       - name: Wait for the service to start  
-        run: sleep 30  # 你可以根据实际需要调整等待时间  
+        run: sleep 10  # 你可以根据实际需要调整等待时间  
 
       # Check if the service is accessible  
       - name: Verify HTTP accessibility  
