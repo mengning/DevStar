@@ -17,7 +17,7 @@ jobs:
     steps:  
       - name: Pull DevStar Image  
         run: |  
-          docker pull mengning997/devstar-studio:latest
+          # docker pull mengning997/devstar-studio:latest
           docker pull devstar.cn/devstar/devstar-studio:latest 
 
       - name: Log in to Target Docker Registry  
