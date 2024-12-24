@@ -31,6 +31,11 @@ DevStar Studio的愿景：服务全球软件开发者！
 ```
 powershell wsl --install -d Ubuntu-20.04
 ```
+如果以上命令无法自动完成安装WSL，可以手动执行如下两条命令完成安装：
+```
+dism.exe /Online /Enable-Feature /FeatureName:Microsoft-Windows-Subsystem-Linux /All /LimitAccess /All
+dism.exe /Online /Enable-Feature /FeatureName:VirtualMachinePlatform /All /LimitAccess
+```
 
 在Ubuntu-20.04下完成安装：
 
