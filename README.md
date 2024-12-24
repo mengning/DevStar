@@ -29,7 +29,7 @@ DevStar Studio的愿景：服务全球软件开发者！
 如果您是在Windows环境下，请在cmd命令行下先运行如下命令：
 
 ```
-wsl --install -d Ubuntu-20.04
+powershell wsl --install -d Ubuntu-20.04
 ```
 
 在Ubuntu-20.04下完成安装：
