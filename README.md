@@ -63,5 +63,11 @@ DevStar started in http://localhost:8080 successfully!
 
 ## License Agreement
 
-* FREE USE - Only one instance is allowed, and the number of users is limited to less than 50, excluding technical support services.
-* The standalone version of DevStar Studio can be deployed for free, while deployment based on Kubernetes in a cloud-native environment requires commercial authorization . It is especially noted that both the standalone version and the Kubernetes cloud-native deployment have the same features, but the standalone version is limited in capacity and scalability.
+> *   **Community Edition (Free):**
+>     *   Includes the standalone version of DevStar Studio.
+>     *   Free to use and deploy.
+>     *   Technical support is not included.
+> *   **Enterprise Edition (Paid):**
+>     *   Requires a commercial license.
+>     *   Unlocks Kubernetes-related features and other advanced functionalities.
+>     *   Includes technical support.
