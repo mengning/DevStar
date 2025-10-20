@@ -18,6 +18,8 @@ jobs:
       - name: Pull DevStar Image  
         run: |  
           docker pull mengning997/devstar-studio:latest
+          docker pull mengning997/webterminal:latest
+          docker pull devstar.cn/devstar/webterminal:latest
           docker pull devstar.cn/devstar/devstar-studio:latest 
 
       - name: Log in to Target Docker Registry  
@@ -29,8 +31,10 @@ jobs:
 
       - name: Tag Docker Image for Target Registry  
         run: |  
-          docker tag devstar.cn/devstar/devstar-studio:latest  mengning997/devstar-studio:latest  # 替换为目标镜像名称和标签  
+          docker tag devstar.cn/devstar/devstar-studio:latest  mengning997/devstar-studio:latest  # 替换为目标镜像名称和标签
+          docker tag devstar.cn/devstar/webterminal:latest  mengning997/webterminal:latest
 
       - name: Push Docker Image to Target Registry  
         run: |  
-          docker push mengning997/devstar-studio:latest  # 替换为目标镜像名称和标签  
+          docker push mengning997/devstar-studio:latest  # 替换为目标镜像名称和标签
+          docker push mengning997/webterminal:latest
