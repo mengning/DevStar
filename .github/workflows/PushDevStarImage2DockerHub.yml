@@ -18,12 +18,12 @@ jobs:
       - name: Pull DevStar Image  
         run: |  
           docker pull mengning997/devstar-studio:latest
+          docker pull devstar.cn/devstar/devstar-studio:latest 
           docker pull mengning997/webterminal:latest
+          docker pull devstar.cn/devstar/webterminal:latest
           docker pull mengning997/act_runner:latest
           docker pull devstar.cn/devstar/act_runner:latest
-          docker pull devstar.cn/devstar/webterminal:latest
-          docker pull devstar.cn/devstar/devstar-studio:latest 
-
+          
       - name: Log in to Target Docker Registry  
         uses: docker/login-action@v2  
         with:  
