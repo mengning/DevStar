@@ -26,18 +26,7 @@ DevStar Studio的愿景：服务全球软件开发者！
 
 ## Quick Start 快速开始
 
-如果您是在Windows环境下，请在cmd命令行下先运行如下命令：
-
-```
-powershell wsl --install -d Ubuntu-20.04
-```
-如果以上命令无法自动完成安装WSL，可以手动执行如下两条命令完成安装：
-```
-dism.exe /Online /Enable-Feature /FeatureName:Microsoft-Windows-Subsystem-Linux /All /LimitAccess /All
-dism.exe /Online /Enable-Feature /FeatureName:VirtualMachinePlatform /All /LimitAccess
-```
-
-在Ubuntu-20.04下完成安装：
+以Ubuntu-20.04系统为例完成安装：
 
 ```bash
 wget -c https://devstar.cn/assets/install.sh && chmod +x install.sh && sudo ./install.sh
@@ -55,11 +44,11 @@ DevStar usage help:
 sudo devstar start
 ...
 -------------------------------------------------------
-DevStar started in http://localhost:8080 successfully!
+DevStar started in http://192.168.1.14:80 successfully!
 -------------------------------------------------------
 ```
 
-然后通过浏览器打开http://localhost:8080 完成后配置安装，默认第一个注册用户为管理员账户。
+然后通过浏览器打开http://192.168.1.14:80 完成后配置安装，默认第一个注册用户为管理员账户。
 
 ## License Agreement
 
