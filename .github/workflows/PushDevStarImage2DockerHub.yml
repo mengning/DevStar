@@ -6,6 +6,12 @@ name: Push DevStar Image to DockerHub
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      IMAGE_NAME:
+        description: 'Docker image name'
+        required: false
+        type: string
+        default: 'devstar-studio:latest'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -17,12 +23,8 @@ jobs:
     steps:  
       - name: Pull DevStar Image  
         run: |  
-          docker pull mengning997/devstar-studio:latest
-          docker pull devstar.cn/devstar/devstar-studio:latest 
-          docker pull mengning997/webterminal:latest
-          docker pull devstar.cn/devstar/webterminal:latest
-          docker pull mengning997/act_runner:latest
-          docker pull devstar.cn/devstar/act_runner:latest
+          docker pull mengning997/${{ github.event.inputs.IMAGE_NAME }}
+          docker pull devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }} 
           
       - name: Log in to Target Docker Registry  
         uses: docker/login-action@v2  
@@ -33,12 +35,8 @@ jobs:
 
       - name: Tag Docker Image for Target Registry  
         run: |  
-          docker tag devstar.cn/devstar/devstar-studio:latest  mengning997/devstar-studio:latest  # 替换为目标镜像名称和标签
-          docker tag devstar.cn/devstar/webterminal:latest  mengning997/webterminal:latest
-          docker tag devstar.cn/devstar/act_runner:latest  mengning997/act_runner:latest
+          docker tag devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }}  mengning997/${{ github.event.inputs.IMAGE_NAME }}  # 替换为目标镜像名称和标签
 
       - name: Push Docker Image to Target Registry  
         run: |  
-          docker push mengning997/devstar-studio:latest  # 替换为目标镜像名称和标签
-          docker push mengning997/webterminal:latest
-          docker push mengning997/act_runner:latest
+          docker push mengning997/${{ github.event.inputs.IMAGE_NAME }}  # 替换为目标镜像名称和标签
