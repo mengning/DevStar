@@ -1,37 +1,31 @@
-# Gitea
+# DevStar
 
-[![](https://github.com/go-gitea/gitea/actions/workflows/release-nightly.yml/badge.svg?branch=main)](https://github.com/go-gitea/gitea/actions/workflows/release-nightly.yml?query=branch%3Amain "Release Nightly")
-[![](https://img.shields.io/discord/322538954119184384.svg?logo=discord&logoColor=white&label=Discord&color=5865F2)](https://discord.gg/Gitea "Join the Discord chat at https://discord.gg/Gitea")
-[![](https://goreportcard.com/badge/code.gitea.io/gitea)](https://goreportcard.com/report/code.gitea.io/gitea "Go Report Card")
-[![](https://pkg.go.dev/badge/code.gitea.io/gitea?status.svg)](https://pkg.go.dev/code.gitea.io/gitea "GoDoc")
-[![](https://img.shields.io/github/release/go-gitea/gitea.svg)](https://github.com/go-gitea/gitea/releases/latest "GitHub release")
-[![](https://www.codetriage.com/go-gitea/gitea/badges/users.svg)](https://www.codetriage.com/go-gitea/gitea "Help Contribute to Open Source")
-[![](https://opencollective.com/gitea/tiers/backers/badge.svg?label=backers&color=brightgreen)](https://opencollective.com/gitea "Become a backer/sponsor of gitea")
-[![](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT "License: MIT")
-[![Contribute with Gitpod](https://img.shields.io/badge/Contribute%20with-Gitpod-908a85?logo=gitpod&color=green)](https://gitpod.io/#https://github.com/go-gitea/gitea)
-[![](https://badges.crowdin.net/gitea/localized.svg)](https://translate.gitea.com "Crowdin")
+AI 赋能研发的“最后一公里”。让一切皆可编程。
 
-[English](./README.md) | [简体中文](./README.zh-cn.md)
+DevStar 提供真正 AI 原生的全栈研发生态，专为 AI 与人类开发者组成的混合团队设计，是面向 AI 时代打造的新一代智能平台。
 
-## 目的
+-   **开箱即用**。DevStar 提供一站式研发系统，安装流程简洁，助你快速搭建开发环境，立即投入编程！
+-   **AI 原生**。从 Copilot、Claude Code、OpenCode 到 OpenClawd、Trae IDE、Cursor IDE，DevStar 无缝集成最新的 AI 工具。它深度嵌入 AI 代码审查、AI 助手和 MCP 服务器，提供真正 AI 原生的一体化研发生态。专为 AI 与人类开发者组成的混合团队设计，是面向 AI 时代打造的新一代智能平台。
+-   **云原生**。提供云原生开发环境，支持 DevContainer，可在 Docker 和 Kubernetes 环境中一键部署云原生研发工具，如 CI/CD 流水线 Runner、Cloudbuild 分布式编译系统、私有化代码大语言模型等！
+-   **一切即代码**。支持通过 Dockerfile 将 Ubuntu、openEuler、Alpine Linux 等主流操作系统作为 DevContainers 和 Actions Runners 运行，实现“一切即代码”。让一切皆可编程。
 
-這個項目的目標是提供最簡單、最快速、最無痛的方式來設置自託管的 Git 服務。
+DevStar 是 Gitea 的商业发行版。由于 [Gitea](https://github.com/go-gitea/gitea) 采用 Go 语言编写，它可在 Go 支持的所有平台和架构上运行，包括 Linux、macOS、Windows 的 x86、amd64、ARM 和 PowerPC 架构。该项目自 2016 年 11 月从 [Gogs](https://gogs.io) [分叉](https://blog.gitea.com/welcome-to-gitea/) 而来，但已发生了巨大变化。
 
-由於 Gitea 是用 Go 語言編寫的，它可以在 Go 支援的所有平台和架構上運行，包括 Linux、macOS 和 Windows 的 x86、amd64、ARM 和 PowerPC 架構。這個項目自 2016 年 11 月從 [Gogs](https://gogs.io) [分叉](https://blog.gitea.com/welcome-to-gitea/) 而來，但已經有了很多變化。
+| 功能类型 | 能力 | 许可证 | 定价模式 |
+| :--- | :--- | :--- | :--- |
+| **核心功能** | ✅ Git 仓库托管<br>✅ 议题与拉取请求<br>✅ Wiki 与项目看板<br>✅ 内置 CI/CD（兼容 GitHub Actions）<br>✅ 细粒度权限控制<br>✅ 用户与组织管理<br>✅ 多包注册表<br>✅ REST API<br>✅ 多数据库支持 / 轻量级部署 | MIT 许可证 | 免费开源 |
+| **增强功能** | ✅ 内置 DevContainer 环境<br>✅ 内置 MCP 服务器<br>✅ 内置 AI 助手<br>✅ 集成 AI CLI 工具（Claude Code/OpenCode 等）<br>✅ 集成 AI IDE（Copilot/Cursor/Trae 等）<br>✅ 一键部署 Actions Runner<br>✅ 在线调试 CI/CD 脚本<br>✅ 项目模板生态（最佳实践模板） | 商业许可证 | **个人使用：** 永久免费（非商业用途）<br>**企业使用：** 年度许可<br>✅ 标准版：CNY 1,888/用户/年（人类或 AI 用户）<br>✅ 自主申报折扣：CNY 188/用户/年（9折优惠）<br>✅ 首年试用：CNY 1.88/用户 |
 
-在線演示可以訪問 [demo.gitea.com](https://demo.gitea.com)。
+## 快速开始
 
-要訪問免費的 Gitea 服務（有一定數量的倉庫限制），可以訪問 [gitea.com](https://gitea.com/user/login)。
+```bash
+curl -fsSL https://devstar.cn/install  | bash
+devstar start # 运行命令部署 DevStar Studio
+```
 
-要快速部署您自己的專用 Gitea 實例，可以在 [cloud.gitea.com](https://cloud.gitea.com) 開始免費試用。
+如需在线演示，请访问 [DevStar.cn](https://DevStar.cn)。
 
-## 文件
-
-您可以在我們的官方 [文件網站](https://docs.gitea.com/) 上找到全面的文件。
-
-它包括安裝、管理、使用、開發、貢獻指南等，幫助您快速入門並有效地探索所有功能。
-
-如果您有任何建議或想要貢獻，可以訪問 [文件倉庫](https://gitea.com/gitea/docs)
+你可以在我们的官方 [文档网站](https://mengning.com.cn) 找到完整文档。
 
 ## 構建
 
