@@ -1,43 +1,36 @@
-# Gitea
+# DevStar
 
-[![](https://github.com/go-gitea/gitea/actions/workflows/release-nightly.yml/badge.svg?branch=main)](https://github.com/go-gitea/gitea/actions/workflows/release-nightly.yml?query=branch%3Amain "Release Nightly")
-[![](https://img.shields.io/discord/322538954119184384.svg?logo=discord&logoColor=white&label=Discord&color=5865F2)](https://discord.gg/Gitea "Join the Discord chat at https://discord.gg/Gitea")
-[![](https://goreportcard.com/badge/code.gitea.io/gitea)](https://goreportcard.com/report/code.gitea.io/gitea "Go Report Card")
-[![](https://pkg.go.dev/badge/code.gitea.io/gitea?status.svg)](https://pkg.go.dev/code.gitea.io/gitea "GoDoc")
-[![](https://img.shields.io/github/release/go-gitea/gitea.svg)](https://github.com/go-gitea/gitea/releases/latest "GitHub release")
-[![](https://www.codetriage.com/go-gitea/gitea/badges/users.svg)](https://www.codetriage.com/go-gitea/gitea "Help Contribute to Open Source")
-[![](https://opencollective.com/gitea/tiers/backers/badge.svg?label=backers&color=brightgreen)](https://opencollective.com/gitea "Become a backer/sponsor of gitea")
-[![](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT "License: MIT")
-[![Contribute with Gitpod](https://img.shields.io/badge/Contribute%20with-Gitpod-908a85?logo=gitpod&color=green)](https://gitpod.io/#https://github.com/go-gitea/gitea)
-[![](https://badges.crowdin.net/gitea/localized.svg)](https://translate.gitea.com "Crowdin")
+The Last Mile of Al for R&D. Make it possible to code everything.
 
-[繁體中文](./README.zh-tw.md) | [简体中文](./README.zh-cn.md)
+Delivering a truly AI‑Native, all‑in‑one R&D ecosystem, and designed for hybrid teams of AI and human developers, DevStar is the next‑generation intelligent platform built for the AI era.
 
-## Purpose
+- Out-of-the-box. DevStar provides a one-stop R&D system with a simple installation process, allowing you to quickly set up your development environment and start coding immediately!
+- AI-Native. From Copilot, Claude Code, and OpenCode to OpenClawd, Trae IDE, and Cursor IDE, DevStar seamlessly integrates with the latest AI tools. It deeply embeds AI Code Review, AI assistants, and MCP Server to deliver a truly AI-Native, all-in-one R&D ecosystem. Designed for hybrid teams of AI and human developers, DevStar is the next-generation intelligent platform built for the AI era.
+- Cloud-Native. Provides a Cloud-Native development environment with DevContainer, supports one-click deployment of Cloud-Native R&D tools in Docker and Kubernetes environments, such as CI/CD pipeline Runners, Cloudbuild distributed compilation systems, private code LLM, and more!
+- Everything as Code. Supporting mainstream operating systems such as Ubuntu, openEuler, and Alpine Linux as DevContainers and Actions Runners via Dockerfile enables "Everything as Code." Make it possible to code everything.
 
-The goal of this project is to make the easiest, fastest, and most
-painless way of setting up a self-hosted Git service.
-
-As Gitea is written in Go, it works across **all** the platforms and
+DevStar is a commercial distribution of Gitea. As [Gitea](https://github.com/go-gitea/gitea) is written in Go, it works across **all** the platforms and
 architectures that are supported by Go, including Linux, macOS, and
 Windows on x86, amd64, ARM and PowerPC architectures.
 This project has been
 [forked](https://blog.gitea.com/welcome-to-gitea/) from
 [Gogs](https://gogs.io) since November of 2016, but a lot has changed.
 
-For online demonstrations, you can visit [demo.gitea.com](https://demo.gitea.com).
+| Feature Type | Capabilities | License | Pricing Model |
+|-------------|-------------|---------|--------------|
+| **Core Features** | ✅ Git Repository Hosting<br>✅ Issues & Pull Requests<br>✅ Wiki & Project Boards<br>✅ Built-in CI/CD (GitHub Actions Compatible)<br>✅ Granular Permissions<br>✅ User & Organization Management<br>✅ Multi-Package Registry<br>✅ REST API<br>✅ Multi-DB Support / Lightweight Deployment | MIT License | Free & Open Source |
+| **Enhanced Features** | ✅ Built-in DevContainer Environment<br>✅ Built-in MCP Server<br>✅ Built-in AI Assistant<br>✅ Integration with AI CLI Tools (Claude Code/OpenCode/etc.)<br>✅ Integration with AI IDEs (Copilot/Cursor/Trae/etc.)<br>✅ One-click Actions Runner Deployment<br>✅ Online CI/CD Script Debugging<br>✅ Project Template Ecosystem (Best Practice Templates) | Commercial License | **Personal Use:** Free Forever (Non-commercial)<br>**Enterprise Use:** Annual License<br>✅ Standard: CNY 1,888/user/year (Human or AI)<br>✅ Self-Report Discount: CNY 188/user/year (90% off)<br>✅ First-Year Trial: CNY 1.88/user |
 
-For accessing free Gitea service (with a limited number of repositories), you can visit [gitea.com](https://gitea.com/user/login).
+## Quick Start
 
-To quickly deploy your own dedicated Gitea instance on Gitea Cloud, you can start a free trial at [cloud.gitea.com](https://cloud.gitea.com).
+```bash
+curl -fsSL https://devstar.cn/install  | bash
+devstar start # Run command to deploy DevStar Studio
+```
 
-## Documentation
+For online demonstrations, you can visit [DevStar.cn](https://DevStar.cn).
 
-You can find comprehensive documentation on our official [documentation website](https://docs.gitea.com/).
-
-It includes installation, administration, usage, development, contributing guides, and more to help you get started and explore all features effectively.
-
-If you have any suggestions or would like to contribute to it, you can visit the [documentation repository](https://gitea.com/gitea/docs)
+You can find comprehensive documentation on our official [documentation website](https://mengning.com.cn).
 
 ## Building
 
