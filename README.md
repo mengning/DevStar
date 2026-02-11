@@ -134,9 +134,7 @@ In the [release log](https://github.com/go-gitea/gitea/releases) or the [change 
 
 ## License
 
-This project is licensed under the MIT License.
-See the [LICENSE](https://github.com/go-gitea/gitea/blob/main/LICENSE) file
-for the full license text.
+this project is licensed under the MIT License. The project name DevStar, together with the registered trademark and official domain devstar.cn, constitutes its brand identity. Derivative works are not permitted to use the same or similar names without permission, in order to avoid public confusion.
 
 ## Further information
 
