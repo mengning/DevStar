@@ -130,7 +130,7 @@ Gitea 的發音是 [/ɡɪ’ti:/](https://youtu.be/EM71-2uDAoY)，就像 "gi-tea
 ## 許可證
 
 這個項目是根據 MIT 許可證授權的。
-請參閱 [LICENSE](https://github.com/go-gitea/gitea/blob/main/LICENSE) 文件以獲取完整的許可證文本。
+项目名称DevStar与已注册相关商标及官方域名devstar.cn共同构成品牌标识，未经许可，衍生产品不得使用相同或近似名称，以免造成公众混淆。翻译成英语
 
 ## 進一步信息
 
