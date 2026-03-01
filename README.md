@@ -30,7 +30,7 @@ devstar start # Run command to deploy DevStar Studio
 
 For online demonstrations, you can visit [DevStar.cn](https://DevStar.cn).
 
-You can find comprehensive documentation on our official [documentation website](https://mengning.com.cn).
+You can find comprehensive documentation on our official [documentation website](https://github.com/mengning/DevStar/wiki).
 
 ## Building
 
