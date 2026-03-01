@@ -25,7 +25,7 @@ devstar start # 运行命令部署 DevStar Studio
 
 如需在线演示，请访问 [DevStar.cn](https://DevStar.cn)。
 
-你可以在我们的官方 [文档网站](https://mengning.com.cn) 找到完整文档。
+你可以在我们的官方 [文档网站](https://github.com/mengning/DevStar/wiki) 找到完整文档。
 
 ## 构建
 
