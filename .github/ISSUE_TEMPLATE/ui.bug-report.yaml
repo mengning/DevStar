@@ -7,6 +7,12 @@ body:
       value: |
         NOTE: If your issue is a security concern, please send an email to contact@mengning.com.cn instead of opening a public issue.
   - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: |
+        Please provide a description of your issue here.
+  - type: textarea
     id: screenshots
     attributes:
       label: Screenshots
