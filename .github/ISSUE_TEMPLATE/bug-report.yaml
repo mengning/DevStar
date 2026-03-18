@@ -5,56 +5,22 @@ body:
   - type: markdown
     attributes:
       value: |
-        NOTE: If your issue is a security concern, please send an email to security@gitea.io instead of opening a public issue.
-  - type: markdown
-    attributes:
-      value: |
-        1. Please speak English, this is the language all maintainers can speak and write.
-        2. Please ask questions or configuration/deploy problems on our Discord
-           server (https://discord.gg/gitea) or forum (https://forum.gitea.com).
-        3. Make sure you are using the latest release and
-           take a moment to check that your issue hasn't been reported before.
-        4. Make sure it's not mentioned in the FAQ (https://docs.gitea.com/help/faq)
-        5. It's really important to provide pertinent details and logs (https://docs.gitea.com/help/support),
-           incomplete details will be handled as an invalid report.
+        NOTE: If your issue is a security concern, please send an email to contact@mengning.com.cn instead of opening a public issue.
   - type: textarea
     id: description
     attributes:
       label: Description
       description: |
         Please provide a description of your issue here, with a URL if you were able to reproduce the issue (see below)
-        If you are using a proxy or a CDN (e.g. Cloudflare) in front of Gitea, please disable the proxy/CDN fully and access Gitea directly to confirm the issue still persists without those services.
+        If you are using a proxy or a CDN (e.g. Cloudflare) in front of DevStar, please disable the proxy/CDN fully and access DevStar directly to confirm the issue still persists without those services.
   - type: input
-    id: gitea-ver
+    id: devstar-ver
     attributes:
-      label: Gitea Version
-      description: Gitea version (or commit reference) of your instance
+      label: DevStar Version
+      description: DevStar version (or commit reference) of your instance
     validations:
       required: true
-  - type: dropdown
-    id: can-reproduce
-    attributes:
-      label: Can you reproduce the bug on the Gitea demo site?
-      description: |
-        If so, please provide a URL in the Description field
-        URL of Gitea demo: https://demo.gitea.com
-      options:
-        - "Yes"
-        - "No"
-    validations:
-      required: true
-  - type: markdown
-    attributes:
-      value: |
-        It's really important to provide pertinent logs
-        Please read https://docs.gitea.com/administration/logging-config#collecting-logs-for-help
-        In addition, if your problem relates to git commands set `RUN_MODE=dev` at the top of app.ini
-  - type: input
-    id: logs
-    attributes:
-      label: Log Gist
-      description: Please provide a gist URL of your logs, with any sensitive information (e.g. API keys) removed/hidden
-  - type: textarea
+   - type: textarea
     id: screenshots
     attributes:
       label: Screenshots
@@ -68,14 +34,14 @@ body:
     id: os-ver
     attributes:
       label: Operating System
-      description: The operating system you are using to run Gitea
+      description: The operating system you are using to run DevStar
   - type: textarea
     id: run-info
     attributes:
-      label: How are you running Gitea?
+      label: How are you running DevStar?
       description: |
-        Please include information on whether you built Gitea yourself, used one of our downloads, are using https://demo.gitea.com or are using some other package
-        Please also tell us how you are running Gitea, e.g. if it is being run from docker, a command-line, systemd etc.
+        Please include information on whether you built DevStar yourself, used one of our downloads, are using https://devstar.cn or are using some other package
+        Please also tell us how you are running DevStar, e.g. if it is being run from docker, a command-line, systemd etc.
         If you are using a package or systemd tell us what distribution you are using
     validations:
       required: true
