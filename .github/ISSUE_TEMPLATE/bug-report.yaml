@@ -20,7 +20,7 @@ body:
       description: DevStar version (or commit reference) of your instance
     validations:
       required: true
-   - type: textarea
+  - type: textarea
     id: screenshots
     attributes:
       label: Screenshots
