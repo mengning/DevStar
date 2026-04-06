@@ -17,31 +17,28 @@ jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-
-    steps: 
-      - name: Log in to DevStar.cn Registry  
-        uses: docker/login-action@v2  
-        with:  
-          registry: devstar.cn  # 替换为目标镜像仓库  
-          username: ${{ secrets.DEVSTAR_USERNAME }}  # 目标仓库用户名  
-          password: ${{ secrets.DEVSTAR_PASSWORD }}  # 目标仓库密码  
-          
-      - name: Pull DevStar Image  
-        run: |  
-          docker pull devstarcn/${{ github.event.inputs.IMAGE_NAME }}
-          docker pull devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }} 
-          
-      - name: Log in to Target Docker Registry  
-        uses: docker/login-action@v2  
-        with:  
-          registry: docker.io  # 替换为目标镜像仓库  
-          username: ${{ secrets.DOCKER_USERNAME }}  # 目标仓库用户名  
-          password: ${{ secrets.DOCKER_PASSWORD }}  # 目标仓库密码  
-
-      - name: Tag Docker Image for Target Registry  
-        run: |  
-          docker tag devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }}  devstarcn/${{ github.event.inputs.IMAGE_NAME }}  # 替换为目标镜像名称和标签
-
-      - name: Push Docker Image to Target Registry  
-        run: |  
-          docker push devstarcn/${{ github.event.inputs.IMAGE_NAME }}  # 替换为目标镜像名称和标签
+    steps:
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+      
+      - name: Login to source registry (devstar.cn)
+        run: |
+          skopeo login devstar.cn \
+            --username ${{ secrets.DEVSTAR_USERNAME }} \
+            --password ${{ secrets.DEVSTAR_PASSWORD }}
+      
+      - name: Login to target registry (Docker Hub)
+        run: |
+          skopeo login docker.io \
+            --username ${{ secrets.DOCKER_USERNAME }} \
+            --password ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Copy image
+        run: |
+          skopeo copy --all \
+            --src-tls-verify=false \
+            --dest-tls-verify=true \
+            docker://devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }} \
+            docker://devstarcn/${{ github.event.inputs.IMAGE_NAME }}
