@@ -1,0 +1,79 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  ai-review:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          git diff origin/${{ github.base_ref }}..HEAD > pr_diff.txt
+          echo "diff_size=$(wc -c < pr_diff.txt)" >> $GITHUB_OUTPUT
+
+      - name: AI Code Review by Claude
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          DIFF_CONTENT=$(cat pr_diff.txt | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g')
+
+          # Limit diff size to avoid API token overflow (approx 150KB)
+          DIFF_TRUNCATED="${DIFF_CONTENT:0:150000}"
+          if [ ${#DIFF_CONTENT} -gt 150000 ]; then
+            DIFF_TRUNCATED="${DIFF_TRUNCATED}\n\n[Diff truncated due to size limit]"
+          fi
+
+          PAYLOAD=$(jq -n \
+            --arg diff "$DIFF_TRUNCATED" \
+            '{
+              model: "claude-3-5-sonnet-20241022",
+              max_tokens: 4096,
+              system: "You are an expert code reviewer. Analyze the git diff and provide a structured review in Markdown. Use Chinese if the codebase appears to be for a Chinese team. Sections: 1) Summary 2) Potential Bugs 3) Security Issues 4) Performance Concerns 5) Readability & Best Practices 6) Suggested Fixes. Be concise and actionable.",
+              messages: [
+                {
+                  role: "user",
+                  content: ("Please review the following code diff:\n\n```diff\n" + $diff + "\n```")
+                }
+              ]
+            }')
+
+          RESPONSE=$(curl -s -f https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "$PAYLOAD")
+
+          REVIEW_BODY=$(echo "$RESPONSE" | jq -r '.content[0].text // "AI review failed: no content returned"')
+          {
+            echo "review_body<<EOF"
+            echo "$REVIEW_BODY"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Post review comment to PR
+        env:
+          GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_BODY=$(jq -n --arg body "## 🤖 AI Code Review\n\n${{ steps.review.outputs.review_body }}" '{body: $body}')
+
+          curl -s -f -X POST \
+            -H "Authorization: token $GITEA_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$COMMENT_BODY" \
+            "$SERVER_URL/api/v1/repos/$REPO/issues/$PR_NUMBER/comments" || true

@@ -1,0 +1,90 @@
+name: AI Lint Analyzer
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+
+jobs:
+  ai-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+
+      - name: Run golangci-lint
+        id: lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --out-format=line-number
+        continue-on-error: true
+
+      - name: Analyze lint results with Claude
+        if: steps.lint.outcome == 'failure'
+        id: analyze
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          LINT_OUTPUT="${{ steps.lint.outputs.stdout }}"
+          if [ -z "$LINT_OUTPUT" ]; then
+            LINT_OUTPUT="No lint output captured."
+          fi
+
+          PAYLOAD=$(jq -n \
+            --arg lint "$LINT_OUTPUT" \
+            '{
+              model: "claude-3-5-sonnet-20241022",
+              max_tokens: 4096,
+              system: "You are a senior Go engineer. Given golangci-lint output, explain each error in plain Chinese, identify the root cause, and provide the exact fix (code snippet). Format as Markdown.",
+              messages: [
+                {
+                  role: "user",
+                  content: ("请分析以下 golangci-lint 报错，并给出修复建议：\n\n```\n" + $lint + "\n```")
+                }
+              ]
+            }')
+
+          RESPONSE=$(curl -s -f https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "$PAYLOAD")
+
+          ANALYSIS=$(echo "$RESPONSE" | jq -r '.content[0].text // "AI analysis failed"')
+          {
+            echo "analysis<<EOF"
+            echo "$ANALYSIS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Post lint analysis comment
+        if: steps.lint.outcome == 'failure'
+        env:
+          GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Determine issue/PR number
+          NUMBER="${{ github.event.pull_request.number }}"
+          if [ -z "$NUMBER" ]; then
+            # For push events, create an issue instead
+            ISSUE_BODY=$(jq -n --arg body "## 🤖 AI Lint 缺陷分析\n\n${{ steps.analyze.outputs.analysis }}" '{title: "🤖 AI Lint 缺陷分析", body: $body}')
+            curl -s -f -X POST \
+              -H "Authorization: token $GITEA_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$ISSUE_BODY" \
+              "$SERVER_URL/api/v1/repos/$REPO/issues" || true
+          else
+            COMMENT_BODY=$(jq -n --arg body "## 🤖 AI Lint 缺陷分析\n\n${{ steps.analyze.outputs.analysis }}" '{body: $body}')
+            curl -s -f -X POST \
+              -H "Authorization: token $GITEA_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$COMMENT_BODY" \
+              "$SERVER_URL/api/v1/repos/$REPO/issues/$NUMBER/comments" || true
+          fi
