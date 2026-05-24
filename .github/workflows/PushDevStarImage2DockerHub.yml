@@ -37,7 +37,6 @@ jobs:
       
       - name: Copy image
         run: |
-          copy devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }} to devstarcn/${{ github.event.inputs.IMAGE_NAME }}
           skopeo copy --all \
             --src-tls-verify=false \
             --dest-tls-verify=true \
