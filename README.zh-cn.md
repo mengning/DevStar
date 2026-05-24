@@ -14,7 +14,7 @@ DevStar 是 Gitea 的商业发行版。由于 [Gitea](https://github.com/go-gite
 | 功能类型 | 能力 | 许可证 | 定价模式 |
 | :--- | :--- | :--- | :--- |
 | **核心功能** | ✅ Git 仓库托管<br>✅ 议题与拉取请求<br>✅ Wiki 与项目看板<br>✅ 内置 CI/CD（兼容 GitHub Actions）<br>✅ 细粒度权限控制<br>✅ 用户与组织管理<br>✅ 多包注册表<br>✅ REST API<br>✅ 多数据库支持 / 轻量级部署 | MIT 许可证 | 免费开源 |
-| **增强功能** | ✅ 内置 DevContainer 环境<br>✅ 内置 MCP 服务器<br>✅ 内置 AI 助手<br>✅ 集成 AI CLI 工具（Claude Code/OpenCode 等）<br>✅ 集成 AI IDE（Copilot/Cursor/Trae 等）<br>✅ 一键部署 Actions Runner<br>✅ 在线调试 CI/CD 脚本<br>✅ 项目模板生态（最佳实践模板） | 商业许可证 | **个人使用：** 永久免费（非商业用途）<br>**企业使用：** 年度许可<br>✅ 标准版：CNY 1,888/用户/年（人类或 AI 用户）<br>✅ 自主申报折扣：CNY 188/用户/年（9折优惠）<br>✅ 首年试用：CNY 1.88/用户 |
+| **增强功能** | ✅ 内置 DevContainer 环境<br>✅ 内置 MCP 服务器<br>✅ 内置 AI 助手<br>✅ 集成 AI CLI 工具（Claude Code/OpenCode 等）<br>✅ 集成 AI IDE（Copilot/Cursor/Trae 等）<br>✅ 一键部署 Actions Runner<br>✅ 在线调试 CI/CD 脚本<br>✅ 项目模板生态（最佳实践模板） | 商业许可证 | **个人使用：** 永久免费（非商业用途）<br>**企业使用：** 年度许可<br>✅ 标准版：CNY 1,888/用户/年（人类或 AI 用户）<br>✅ 自主申报折扣：CNY 188/用户/年（1折优惠）<br>✅ 首年试用：CNY 1.88/用户 |
 
 ## 快速开始
 
