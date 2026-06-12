@@ -1,6 +1,8 @@
 # DevStar
 
-AI 赋能研发的“最后一公里”。让一切皆可编程。
+DevStar AI 2.0 Agent Teams: Empowering innovators to make the world better.
+
+The Last Mile of Al for R&D. Make it possible to code everything.
 
 DevStar 提供真正 AI 原生的全栈研发生态，专为 AI 与人类开发者组成的混合团队设计，是面向 AI 时代打造的新一代智能平台。
 
