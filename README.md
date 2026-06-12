@@ -1,5 +1,7 @@
 # DevStar
 
+DevStar AI 2.0 Agent Teams: Empowering innovators to make the world better.
+
 The Last Mile of Al for R&D. Make it possible to code everything.
 
 Delivering a truly AI‑Native, all‑in‑one R&D ecosystem, and designed for hybrid teams of AI and human developers, DevStar is the next‑generation intelligent platform built for the AI era.
