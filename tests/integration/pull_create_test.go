@@ -20,7 +20,6 @@ import (
 	"code.gitea.io/gitea/modules/git/gitcmd"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/test"
-	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -59,7 +58,6 @@ func testPullCreate(t *testing.T, session *TestSession, user, repo string, toSel
 	link, exists = htmlDoc.doc.Find("form.ui.form").Attr("action")
 	assert.True(t, exists, "The template has changed")
 	req = NewRequestWithValues(t, "POST", link, map[string]string{
-		"_csrf": htmlDoc.GetCSRF(),
 		"title": title,
 	})
 	resp = session.MakeRequest(t, req, http.StatusOK)
@@ -103,7 +101,6 @@ func testPullCreateDirectly(t *testing.T, session *TestSession, opts createPullR
 	link, exists := htmlDoc.doc.Find("form.ui.form").Attr("action")
 	assert.True(t, exists, "The template has changed")
 	params := map[string]string{
-		"_csrf": htmlDoc.GetCSRF(),
 		"title": opts.Title,
 	}
 	if opts.ReviewerIDs != "" {
@@ -131,7 +128,6 @@ func testPullCreateFailure(t *testing.T, session *TestSession, baseRepoOwner, ba
 	link, exists := htmlDoc.doc.Find("form.ui.form").Attr("action")
 	assert.True(t, exists, "The template has changed")
 	req = NewRequestWithValues(t, "POST", link, map[string]string{
-		"_csrf": htmlDoc.GetCSRF(),
 		"title": title,
 	})
 	resp = session.MakeRequest(t, req, http.StatusBadRequest)
@@ -159,7 +155,6 @@ func TestPullCreate(t *testing.T) {
 		// test create the pull request again and it should fail now
 		link := "/user2/repo1/compare/master...user1/repo1:master"
 		req := NewRequestWithValues(t, "POST", link, map[string]string{
-			"_csrf": GetUserCSRFToken(t, session),
 			"title": "This is a pull title",
 		})
 		session.MakeRequest(t, req, http.StatusBadRequest)
@@ -181,63 +176,17 @@ func TestPullCreate(t *testing.T) {
 	})
 }
 
-func TestPullCreate_TitleEscape(t *testing.T) {
-	onGiteaRun(t, func(t *testing.T, u *url.URL) {
-		session := loginUser(t, "user1")
-		testRepoFork(t, session, "user2", "repo1", "user1", "repo1", "")
-		testEditFile(t, session, "user1", "repo1", "master", "README.md", "Hello, World (Edited)\n")
-		resp := testPullCreate(t, session, "user1", "repo1", false, "master", "master", "<i>XSS PR</i>")
-
-		// check the redirected URL
-		url := test.RedirectURL(resp)
-		assert.Regexp(t, "^/user2/repo1/pulls/[0-9]*$", url)
-
-		// Edit title
-		req := NewRequest(t, "GET", url)
-		resp = session.MakeRequest(t, req, http.StatusOK)
-		htmlDoc := NewHTMLParser(t, resp.Body)
-		editTestTitleURL, exists := htmlDoc.doc.Find(".issue-title-buttons button[data-update-url]").First().Attr("data-update-url")
-		assert.True(t, exists, "The template has changed")
-
-		req = NewRequestWithValues(t, "POST", editTestTitleURL, map[string]string{
-			"_csrf": htmlDoc.GetCSRF(),
-			"title": "<u>XSS PR</u>",
-		})
-		session.MakeRequest(t, req, http.StatusOK)
-
-		req = NewRequest(t, "GET", url)
-		resp = session.MakeRequest(t, req, http.StatusOK)
-		htmlDoc = NewHTMLParser(t, resp.Body)
-		titleHTML, err := htmlDoc.doc.Find(".comment-list .timeline-item.event .comment-text-line b").First().Html()
-		assert.NoError(t, err)
-		assert.Equal(t, "<strike>&lt;i&gt;XSS PR&lt;/i&gt;</strike>", titleHTML)
-		titleHTML, err = htmlDoc.doc.Find(".comment-list .timeline-item.event .comment-text-line b").Next().Html()
-		assert.NoError(t, err)
-		assert.Equal(t, "&lt;u&gt;XSS PR&lt;/u&gt;", titleHTML)
-	})
-}
-
 func testUIDeleteBranch(t *testing.T, session *TestSession, ownerName, repoName, branchName string) {
 	relURL := "/" + path.Join(ownerName, repoName, "branches")
-	req := NewRequest(t, "GET", relURL)
-	resp := session.MakeRequest(t, req, http.StatusOK)
-	htmlDoc := NewHTMLParser(t, resp.Body)
-
-	req = NewRequestWithValues(t, "POST", relURL+"/delete", map[string]string{
-		"_csrf": htmlDoc.GetCSRF(),
-		"name":  branchName,
+	req := NewRequestWithValues(t, "POST", relURL+"/delete", map[string]string{
+		"name": branchName,
 	})
 	session.MakeRequest(t, req, http.StatusOK)
 }
 
 func testDeleteRepository(t *testing.T, session *TestSession, ownerName, repoName string) {
 	relURL := "/" + path.Join(ownerName, repoName, "settings")
-	req := NewRequest(t, "GET", relURL)
-	resp := session.MakeRequest(t, req, http.StatusOK)
-	htmlDoc := NewHTMLParser(t, resp.Body)
-
-	req = NewRequestWithValues(t, "POST", relURL+"?action=delete", map[string]string{
-		"_csrf":     htmlDoc.GetCSRF(),
+	req := NewRequestWithValues(t, "POST", relURL+"?action=delete", map[string]string{
 		"repo_name": repoName,
 	})
 	session.MakeRequest(t, req, http.StatusSeeOther)
@@ -345,7 +294,7 @@ func TestCreatePullRequestFromNestedOrgForks(t *testing.T) {
 
 		forkIntoOrg := func(srcOrg, dstOrg string) api.Repository {
 			req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/forks", srcOrg, repoName), &api.CreateForkOption{
-				Organization: util.ToPointer(dstOrg),
+				Organization: new(dstOrg),
 			}).AddTokenAuth(token)
 			resp := MakeRequest(t, req, http.StatusAccepted)
 			var forkRepo api.Repository
@@ -452,7 +401,10 @@ func TestCreateAgitPullWithReadPermission(t *testing.T) {
 		assert.Equal(t, 3, repo.NumPulls)
 		assert.Equal(t, 3, repo.NumOpenPulls)
 
-		err := gitcmd.NewCommand("push", "origin", "HEAD:refs/for/master", "-o").AddDynamicArguments("topic="+"test-topic").Run(t.Context(), &gitcmd.RunOpts{Dir: dstPath})
+		err := gitcmd.NewCommand("push", "origin", "HEAD:refs/for/master", "-o").
+			AddDynamicArguments("topic=test-topic").
+			WithDir(dstPath).
+			Run(t.Context())
 		assert.NoError(t, err)
 
 		repo = unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerName: "user2", Name: "repo1"})

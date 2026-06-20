@@ -1,6 +1,7 @@
 import {html, htmlRaw} from '../utils/html.ts';
-import {createCodeEditor} from './codeeditor.ts';
-import {hideElem, queryElems, showElem, createElementFromHTML} from '../utils/dom.ts';
+import {createCodeEditor} from '../modules/codeeditor/main.ts';
+import {trimTrailingWhitespaceFromView} from '../modules/codeeditor/utils.ts';
+import {hideElem, queryElems, showElem, createElementFromHTML, onInputDebounce} from '../utils/dom.ts';
 import {POST} from '../modules/fetch.ts';
 import {initDropzone} from './dropzone.ts';
 import {confirmModal} from './comp/ConfirmModal.ts';
@@ -9,7 +10,7 @@ import {fomanticQuery} from '../modules/fomantic/base.ts';
 import {submitFormFetchAction} from './common-fetch-action.ts';
 
 function initEditPreviewTab(elForm: HTMLFormElement) {
-  const elTabMenu = elForm.querySelector('.repo-editor-menu');
+  const elTabMenu = elForm.querySelector('.repo-editor-menu')!;
   fomanticQuery(elTabMenu.querySelectorAll('.item')).tab();
 
   const elPreviewTab = elTabMenu.querySelector('a[data-tab="preview"]');
@@ -17,15 +18,15 @@ function initEditPreviewTab(elForm: HTMLFormElement) {
   if (!elPreviewTab || !elPreviewPanel) return;
 
   elPreviewTab.addEventListener('click', async () => {
-    const elTreePath = elForm.querySelector<HTMLInputElement>('input#tree_path');
-    const previewUrl = elPreviewTab.getAttribute('data-preview-url');
+    const elTreePath = elForm.querySelector<HTMLInputElement>('input#tree_path')!;
+    const previewUrl = elPreviewTab.getAttribute('data-preview-url')!;
     const previewContextRef = elPreviewTab.getAttribute('data-preview-context-ref');
     let previewContext = `${previewContextRef}/${elTreePath.value}`;
     previewContext = previewContext.substring(0, previewContext.lastIndexOf('/'));
     const formData = new FormData();
     formData.append('mode', 'file');
     formData.append('context', previewContext);
-    formData.append('text', elForm.querySelector<HTMLTextAreaElement>('.tab[data-tab="write"] textarea').value);
+    formData.append('text', elForm.querySelector<HTMLTextAreaElement>('.tab[data-tab="write"] textarea')!.value);
     formData.append('file_path', elTreePath.value);
     const response = await POST(previewUrl, {data: formData});
     const data = await response.text();
@@ -41,17 +42,21 @@ export function initRepoEditor() {
     el.addEventListener('input', () => {
       if (el.value === 'commit-to-new-branch') {
         showElem('.quick-pull-branch-name');
-        document.querySelector<HTMLInputElement>('.quick-pull-branch-name input').required = true;
+        document.querySelector<HTMLInputElement>('.quick-pull-branch-name input')!.required = true;
       } else {
         hideElem('.quick-pull-branch-name');
-        document.querySelector<HTMLInputElement>('.quick-pull-branch-name input').required = false;
+        document.querySelector<HTMLInputElement>('.quick-pull-branch-name input')!.required = false;
       }
-      document.querySelector('#commit-button').textContent = el.getAttribute('data-button-text');
+      document.querySelector('#commit-button')!.textContent = el.getAttribute('data-button-text');
     });
   }
 
-  const filenameInput = document.querySelector<HTMLInputElement>('#file-name');
+  // ATTENTION: two pages have this filename input
+  // * new/edit file page: there is a code editor
+  // * upload page: there is no code editor, but a uploader
+  const filenameInput = document.querySelector<HTMLInputElement>('#file-name')!;
   if (!filenameInput) return;
+  filenameInput.value = filenameInput.defaultValue; // prevent browser from restoring form values on refresh
   function joinTreePath() {
     const parts = [];
     for (const el of document.querySelectorAll('.breadcrumb span.section')) {
@@ -61,7 +66,7 @@ export function initRepoEditor() {
     if (filenameInput.value) {
       parts.push(filenameInput.value);
     }
-    document.querySelector<HTMLInputElement>('#tree_path').value = parts.join('/');
+    document.querySelector<HTMLInputElement>('#tree_path')!.value = parts.join('/');
   }
   filenameInput.addEventListener('input', function () {
     const parts = filenameInput.value.split('/');
@@ -76,8 +81,8 @@ export function initRepoEditor() {
         if (trimValue === '..') {
           // remove previous tree path
           if (links.length > 0) {
-            const link = links.pop();
-            const divider = dividers.pop();
+            const link = links.pop()!;
+            const divider = dividers.pop()!;
             link.remove();
             divider.remove();
           }
@@ -104,7 +109,7 @@ export function initRepoEditor() {
       }
     }
     containSpace = containSpace || Array.from(links).some((link) => {
-      const value = link.querySelector('a').textContent;
+      const value = link.querySelector('a')!.textContent;
       return value.trim() !== value;
     });
     containSpace = containSpace || parts[parts.length - 1].trim() !== parts[parts.length - 1];
@@ -113,9 +118,9 @@ export function initRepoEditor() {
         warningDiv = document.createElement('div');
         warningDiv.classList.add('ui', 'warning', 'message', 'flash-message', 'flash-warning', 'space-related');
         warningDiv.innerHTML = html`<p>File path contains leading or trailing whitespace.</p>`;
-        // Add display 'block' because display is set to 'none' in formantic\build\semantic.css
-        warningDiv.style.display = 'block';
-        const inputContainer = document.querySelector('.repo-editor-header');
+        // Change to `block` display because it is set to 'none' in fomantic/build/semantic.css
+        warningDiv.classList.add('tw-block');
+        const inputContainer = document.querySelector('.repo-editor-header')!;
         inputContainer.insertAdjacentElement('beforebegin', warningDiv);
       }
       showElem(warningDiv);
@@ -132,7 +137,7 @@ export function initRepoEditor() {
       e.preventDefault();
       const lastSection = sections[sections.length - 1];
       const lastDivider = dividers.length ? dividers[dividers.length - 1] : null;
-      const value = lastSection.querySelector('a').textContent;
+      const value = lastSection.querySelector('a')!.textContent;
       filenameInput.value = value + filenameInput.value;
       this.setSelectionRange(value.length, value.length);
       lastDivider?.remove();
@@ -141,15 +146,16 @@ export function initRepoEditor() {
     }
   });
 
-  const elForm = document.querySelector<HTMLFormElement>('.repository.editor .edit.form');
+  const elForm = document.querySelector<HTMLFormElement>('.repository.editor .edit.form')!;
 
-  // on the upload page, there is no editor(textarea)
+  // see the ATTENTION above, on the upload page, there is no editor(textarea)
+  // so only the filename input above is initialized, the code below (for the code editor) will be skipped
   const editArea = document.querySelector<HTMLTextAreaElement>('.page-content.repository.editor textarea#edit_area');
   if (!editArea) return;
 
   // Using events from https://github.com/codedance/jquery.AreYouSure#advanced-usage
   // to enable or disable the commit button
-  const commitButton = document.querySelector<HTMLButtonElement>('#commit-button');
+  const commitButton = document.querySelector<HTMLButtonElement>('#commit-button')!;
   const dirtyFileClass = 'dirty-file';
 
   const syncCommitButtonState = () => {
@@ -170,22 +176,28 @@ export function initRepoEditor() {
 
   (async () => {
     const editor = await createCodeEditor(editArea, filenameInput);
+    filenameInput.addEventListener('input', onInputDebounce(() => editor.updateFilename(filenameInput.value)));
 
     // Update the editor from query params, if available,
     // only after the dirtyFileClass initialization
     const params = new URLSearchParams(window.location.search);
     const value = params.get('value');
     if (value) {
-      editor.setValue(value);
+      editor.view.dispatch({
+        changes: {from: 0, to: editor.view.state.doc.length, insert: value},
+      });
     }
 
     commitButton.addEventListener('click', async (e) => {
+      if (editor.trimTrailingWhitespace) {
+        trimTrailingWhitespaceFromView(editor.view);
+      }
       // A modal which asks if an empty file should be committed
       if (!editArea.value) {
         e.preventDefault();
         if (await confirmModal({
-          header: elForm.getAttribute('data-text-empty-confirm-header'),
-          content: elForm.getAttribute('data-text-empty-confirm-content'),
+          header: elForm.getAttribute('data-text-empty-confirm-header')!,
+          content: elForm.getAttribute('data-text-empty-confirm-content')!,
         })) {
           ignoreAreYouSure(elForm);
           submitFormFetchAction(elForm);
@@ -197,5 +209,5 @@ export function initRepoEditor() {
 
 export function renderPreviewPanelContent(previewPanel: Element, htmlContent: string) {
   // the content is from the server, so it is safe to use innerHTML
-  previewPanel.innerHTML = html`<div class="render-content markup">${htmlRaw(htmlContent)}</div>`;
+  previewPanel.innerHTML = html`<div class="render-content render-preview markup">${htmlRaw(htmlContent)}</div>`;
 }

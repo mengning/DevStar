@@ -32,34 +32,6 @@ func ErrAsUserAuthMessage(err error) (string, bool) {
 	return "", false
 }
 
-type ErrUserAuthMessage string
-
-func (e ErrUserAuthMessage) Error() string {
-	return string(e)
-}
-
-func ErrAsUserAuthMessage(err error) (string, bool) {
-	var msg ErrUserAuthMessage
-	if errors.As(err, &msg) {
-		return msg.Error(), true
-	}
-	return "", false
-}
-
-type ErrUserAuthMessage string
-
-func (e ErrUserAuthMessage) Error() string {
-	return string(e)
-}
-
-func ErrAsUserAuthMessage(err error) (string, bool) {
-	var msg ErrUserAuthMessage
-	if errors.As(err, &msg) {
-		return msg.Error(), true
-	}
-	return "", false
-}
-
 // Init should be called exactly once when the application starts to allow plugins
 // to allocate necessary resources
 func Init() {

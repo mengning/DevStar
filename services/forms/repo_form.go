@@ -10,7 +10,9 @@ import (
 
 	issues_model "code.gitea.io/gitea/models/issues"
 	project_model "code.gitea.io/gitea/models/project"
+	"code.gitea.io/gitea/modules/json"
 	"code.gitea.io/gitea/modules/structs"
+	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/modules/web/middleware"
 	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/webhook"
@@ -27,9 +29,9 @@ type CreateRepoForm struct {
 	DefaultBranch string `binding:"GitRefName;MaxSize(100)"`
 	AutoInit      bool
 	Gitignores    string
-	IssueLabels   string
-	License       string
-	Readme        string
+	IssueLabels   string `binding:"MaxSize(255)"`
+	License       string `binding:"MaxSize(100)"`
+	Readme        string `binding:"MaxSize(255)"`
 	Template      bool
 
 	RepoTemplate    int64
@@ -41,7 +43,7 @@ type CreateRepoForm struct {
 	Labels          bool
 	ProtectedBranch bool
 
-	ForkSingleBranch string
+	ForkSingleBranch string `binding:"MaxSize(255)"`
 	ObjectFormatName string
 }
 
@@ -104,7 +106,6 @@ type RepoSettingForm struct {
 	PushMirrorPassword     string
 	PushMirrorSyncOnCommit bool
 	PushMirrorInterval     string
-	Private                bool
 	Template               bool
 	EnablePrune            bool
 
@@ -144,13 +145,10 @@ type RepoSettingForm struct {
 	PullsAllowRebaseUpdate           bool
 	DefaultDeleteBranchAfterMerge    bool
 	DefaultAllowMaintainerEdit       bool
+	DefaultTargetBranch              string
 	EnableTimetracker                bool
 	AllowOnlyContributorsToTrackTime bool
 	EnableIssueDependencies          bool
-
-	EnableActions bool
-
-	IsArchived bool
 
 	// Signing Settings
 	TrustModel string
@@ -204,12 +202,9 @@ func (f *ProtectBranchForm) Validate(req *http.Request, errs binding.Errors) bin
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }
 
-type ProtectBranchPriorityForm struct {
-	IDs []int64
-}
-
 // WebhookForm form for changing web hook
 type WebhookForm struct {
+	Name                     string `binding:"MaxSize(255)"`
 	Events                   string
 	Create                   bool
 	Delete                   bool
@@ -410,13 +405,6 @@ func (f *NewPackagistHookForm) Validate(req *http.Request, errs binding.Errors) 
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }
 
-// .___
-// |   | ______ ________ __   ____
-// |   |/  ___//  ___/  |  \_/ __ \
-// |   |\___ \ \___ \|  |  /\  ___/
-// |___/____  >____  >____/  \___  >
-//          \/     \/            \/
-
 // CreateIssueForm form for creating issue
 type CreateIssueForm struct {
 	Title               string `binding:"Required;MaxSize(255)"`
@@ -532,15 +520,48 @@ func (f *InitializeLabelsForm) Validate(req *http.Request, errs binding.Errors) 
 // swagger:model MergePullRequestOption
 type MergePullRequestForm struct {
 	// required: true
-	// enum: merge,rebase,rebase-merge,squash,fast-forward-only,manually-merged
-	Do                     string `binding:"Required;In(merge,rebase,rebase-merge,squash,fast-forward-only,manually-merged)"`
-	MergeTitleField        string
-	MergeMessageField      string
-	MergeCommitID          string // only used for manually-merged
+	// enum: ["merge","rebase","rebase-merge","squash","fast-forward-only","manually-merged"]
+	Do                     string `json:"do" binding:"Required;In(merge,rebase,rebase-merge,squash,fast-forward-only,manually-merged)"`
+	MergeTitleField        string `json:"merge_title_field,omitempty"`
+	MergeMessageField      string `json:"merge_message_field,omitempty"`
+	MergeCommitID          string `json:"merge_commit_id,omitempty"` // only used for manually-merged
 	HeadCommitID           string `json:"head_commit_id,omitempty"`
 	ForceMerge             bool   `json:"force_merge,omitempty"`
 	MergeWhenChecksSucceed bool   `json:"merge_when_checks_succeed,omitempty"`
 	DeleteBranchAfterMerge *bool  `json:"delete_branch_after_merge,omitempty"`
+}
+
+func (f *MergePullRequestForm) UnmarshalJSON(b []byte) error {
+	// This is for backward compatibility, to support both field names like "do" and "Do",
+	// because old code doesn't have "json" tag for these fields
+	type aux struct {
+		Do1                string `json:"do"`
+		Do2                string `json:"Do"`
+		MergeTitleField1   string `json:"merge_title_field"`
+		MergeTitleField2   string `json:"MergeTitleField"`
+		MergeMessageField1 string `json:"merge_message_field"`
+		MergeMessageField2 string `json:"MergeMessageField"`
+		MergeCommitID1     string `json:"merge_commit_id"`
+		MergeCommitID2     string `json:"MergeCommitID"`
+
+		HeadCommitID           string `json:"head_commit_id"`
+		ForceMerge             bool   `json:"force_merge"`
+		MergeWhenChecksSucceed bool   `json:"merge_when_checks_succeed"`
+		DeleteBranchAfterMerge *bool  `json:"delete_branch_after_merge"`
+	}
+	var a aux
+	if err := json.Unmarshal(b, &a); err != nil {
+		return err
+	}
+	f.Do = util.IfZero(a.Do1, a.Do2)
+	f.MergeTitleField = util.IfZero(a.MergeTitleField1, a.MergeTitleField2)
+	f.MergeMessageField = util.IfZero(a.MergeMessageField1, a.MergeMessageField2)
+	f.MergeCommitID = util.IfZero(a.MergeCommitID1, a.MergeCommitID2)
+	f.HeadCommitID = a.HeadCommitID
+	f.ForceMerge = a.ForceMerge
+	f.MergeWhenChecksSucceed = a.MergeWhenChecksSucceed
+	f.DeleteBranchAfterMerge = a.DeleteBranchAfterMerge
+	return nil
 }
 
 // Validate validates the fields
@@ -639,6 +660,19 @@ type NewReleaseForm struct {
 
 // Validate validates the fields
 func (f *NewReleaseForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	ctx := context.GetValidateContext(req)
+	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
+}
+
+// GenerateReleaseNotesForm retrieves release notes recommendations.
+type GenerateReleaseNotesForm struct {
+	TagName     string `form:"tag_name" binding:"Required;GitRefName;MaxSize(255)"`
+	TagTarget   string `form:"tag_target" binding:"MaxSize(255)"`
+	PreviousTag string `form:"previous_tag" binding:"MaxSize(255)"`
+}
+
+// Validate validates the fields
+func (f *GenerateReleaseNotesForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	ctx := context.GetValidateContext(req)
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }

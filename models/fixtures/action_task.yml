@@ -179,8 +179,7 @@
   log_expired: 0
 
 -
-  id: 55
-  job_id: 205
+  id: 56
   attempt: 1
   runner_id: 1
   status: 3 # 3 is the status code for "cancelled"

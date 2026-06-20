@@ -110,9 +110,6 @@ func CreatePushPullComment(ctx context.Context, pusher *user_model.User, pr *iss
 		if err != nil {
 			return nil, false, err
 		}
-		if len(data.CommitIDs) == 0 {
-			return nil, nil
-		}
 	}
 	newCommitID, err := gitRepo.GetRefCommitID(newRef)
 	if err != nil {
