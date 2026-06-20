@@ -7,12 +7,15 @@ package user
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"html/template"
 	"mime"
 	"net/mail"
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +30,7 @@ import (
 	"code.gitea.io/gitea/modules/base"
 	"code.gitea.io/gitea/modules/container"
 	"code.gitea.io/gitea/modules/git"
+	"code.gitea.io/gitea/modules/htmlutil"
 	"code.gitea.io/gitea/modules/httplib"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/optional"
@@ -184,7 +188,7 @@ func (u *User) BeforeUpdate() {
 	}
 
 	// FIXME: this email doesn't need to be in lowercase, because the emails are mainly managed by the email table with lower_email field
-	// This trick could be removed in new releases to display the user inputed email as-is.
+	// This trick could be removed in new releases to display the user inputted email as-is.
 	u.Email = strings.ToLower(u.Email)
 	if !u.IsOrganization() {
 		if len(u.AvatarEmail) == 0 {
@@ -212,7 +216,7 @@ func (u *User) SetLastLogin() {
 
 // GetPlaceholderEmail returns an noreply email
 func (u *User) GetPlaceholderEmail() string {
-	return fmt.Sprintf("%s@%s", u.LowerName, setting.Service.NoReplyAddress)
+	return fmt.Sprintf("%d+%s@%s", u.ID, u.LowerName, setting.Service.NoReplyAddress)
 }
 
 // GetEmail returns a noreply email, if the user has set to keep his
@@ -249,8 +253,13 @@ func (u *User) MaxCreationLimit() int {
 }
 
 // CanCreateRepoIn checks whether the doer(u) can create a repository in the owner
-// NOTE: functions calling this assume a failure due to repository count limit; it ONLY checks the repo number LIMIT, if new checks are added, those functions should be revised
+// NOTE: functions calling this assume a failure due to repository count limit, or the owner is not a real user.
+// It ONLY checks the repo number LIMIT or whether owner user is real. If new checks are added, those functions should be revised.
+// TODO: the callers can only return ErrReachLimitOfRepo, need to fine tune to support other error types in the future.
 func (u *User) CanCreateRepoIn(owner *User) bool {
+	if u.ID <= 0 || owner.ID <= 0 {
+		return false // fake user like Ghost or Actions user
+	}
 	if u.IsAdmin {
 		return true
 	}
@@ -296,6 +305,13 @@ func (u *User) DashboardLink() string {
 		return u.OrganisationLink() + "/dashboard"
 	}
 	return setting.AppSubURL + "/"
+}
+
+func (u *User) SettingsLink() string {
+	if u.IsOrganization() {
+		return u.OrganisationLink() + "/settings"
+	}
+	return setting.AppSubURL + "/user/settings"
 }
 
 // HomeLink returns the user or organization home page link.
@@ -411,16 +427,6 @@ func (u *User) IsTokenAccessAllowed() bool {
 	return u.Type == UserTypeIndividual || u.Type == UserTypeBot
 }
 
-// DisplayName returns full name if it's not empty,
-// returns username otherwise.
-func (u *User) DisplayName() string {
-	trimmed := strings.TrimSpace(u.FullName)
-	if len(trimmed) > 0 {
-		return trimmed
-	}
-	return u.Name
-}
-
 // EmailTo returns a string suitable to be put into a e-mail `To:` header.
 func (u *User) EmailTo() string {
 	sanitizedDisplayName := globalVars().emailToReplacer.Replace(u.DisplayName())
@@ -439,27 +445,45 @@ func (u *User) EmailTo() string {
 	return fmt.Sprintf("%s <%s>", mime.QEncoding.Encode("utf-8", add.Name), add.Address)
 }
 
-// GetDisplayName returns full name if it's not empty and DEFAULT_SHOW_FULL_NAME is set,
-// returns username otherwise.
+// TODO: DefaultShowFullName causes messy logic, there are already too many methods to display a user's "display name", need to refactor them
+// * user.Name / user.FullName: directly used in templates
+// * user.DisplayName(): always show FullName if it's not empty, otherwise show Name
+// * user.GetDisplayName(): show FullName if it's not empty and DefaultShowFullName is set, otherwise show Name
+// * user.ShortName(): used a lot in templates, but it should be removed and let frontend use "ellipsis" styles
+// * activity action.ShortActUserName/GetActDisplayName/GetActDisplayNameTitle, etc: duplicate and messy
+
+// DisplayName returns full name if it's not empty, returns username otherwise.
+func (u *User) DisplayName() string {
+	fullName := strings.TrimSpace(u.FullName)
+	if fullName != "" {
+		return fullName
+	}
+	return u.Name
+}
+
+// GetDisplayName returns full name if it's not empty and DEFAULT_SHOW_FULL_NAME is set, otherwise, username.
 func (u *User) GetDisplayName() string {
 	if setting.UI.DefaultShowFullName {
-		trimmed := strings.TrimSpace(u.FullName)
-		if len(trimmed) > 0 {
-			return trimmed
+		fullName := strings.TrimSpace(u.FullName)
+		if fullName != "" {
+			return fullName
 		}
 	}
 	return u.Name
 }
 
-// GetCompleteName returns the full name and username in the form of
-// "Full Name (username)" if full name is not empty, otherwise it returns
-// "username".
-func (u *User) GetCompleteName() string {
-	trimmedFullName := strings.TrimSpace(u.FullName)
-	if len(trimmedFullName) > 0 {
-		return fmt.Sprintf("%s (%s)", trimmedFullName, u.Name)
+// ShortName ellipses username to length (still used by many templates), it calls GetDisplayName and respects DEFAULT_SHOW_FULL_NAME
+func (u *User) ShortName(length int) string {
+	return util.EllipsisDisplayString(u.GetDisplayName(), length)
+}
+
+func (u *User) GetShortDisplayNameLinkHTML() template.HTML {
+	fullName := strings.TrimSpace(u.FullName)
+	displayName, displayTooltip := u.Name, fullName
+	if setting.UI.DefaultShowFullName && fullName != "" {
+		displayName, displayTooltip = fullName, u.Name
 	}
-	return u.Name
+	return htmlutil.HTMLFormat(`<a class="muted" href="%s" data-tooltip-content="%s">%s</a>`, u.HomeLink(), displayTooltip, displayName)
 }
 
 func gitSafeName(name string) string {
@@ -482,18 +506,10 @@ func (u *User) GitName() string {
 	return fmt.Sprintf("user-%d", u.ID)
 }
 
-// ShortName ellipses username to length
-func (u *User) ShortName(length int) string {
-	if setting.UI.DefaultShowFullName && len(u.FullName) > 0 {
-		return util.EllipsisDisplayString(u.FullName, length)
-	}
-	return util.EllipsisDisplayString(u.Name, length)
-}
-
-// IsMailable checks if a user is eligible
-// to receive emails.
+// IsMailable checks if a user is eligible to receive emails.
+// System users like Ghost and Gitea Actions are excluded.
 func (u *User) IsMailable() bool {
-	return u.IsActive
+	return u.IsActive && !u.IsGiteaActions() && !u.IsGhost()
 }
 
 // IsUserExist checks if given username exist,
@@ -980,7 +996,7 @@ func GetInactiveUsers(ctx context.Context, olderThan time.Duration) ([]*User, er
 
 // UserPath returns the path absolute path of user repositories.
 func UserPath(userName string) string { //revive:disable-line:exported
-	return filepath.Join(setting.RepoRootPath, strings.ToLower(userName))
+	return filepath.Join(setting.RepoRootPath, filepath.Clean(strings.ToLower(userName)))
 }
 
 // GetUserByID returns the user object by given ID if exists.
@@ -1008,17 +1024,22 @@ func GetUserByIDs(ctx context.Context, ids []int64) ([]*User, error) {
 	return users, err
 }
 
-// GetPossibleUserByID returns the user if id > 0 or returns system user if id < 0
-func GetPossibleUserByID(ctx context.Context, id int64) (*User, error) {
+// GetPossibleUserByID returns the possible user and its ID. If the user  doesn't exist, it returns Ghost user
+func GetPossibleUserByID(ctx context.Context, id int64) (_ int64, u *User, err error) {
 	if id < 0 {
 		if newFunc, ok := globalVars().systemUserNewFuncs[id]; ok {
-			return newFunc(), nil
+			u = newFunc()
 		}
-		return nil, ErrUserNotExist{UID: id}
-	} else if id == 0 {
-		return nil, ErrUserNotExist{}
 	}
-	return GetUserByID(ctx, id)
+	if u == nil {
+		u, err = GetUserByID(ctx, id)
+		if errors.Is(err, util.ErrNotExist) {
+			u = NewGhostUser()
+		} else if err != nil {
+			return 0, nil, err
+		}
+	}
+	return u.ID, u, nil
 }
 
 // GetPossibleUserByIDs returns the users if id > 0 or returns system users if id < 0
@@ -1039,19 +1060,28 @@ func GetPossibleUserByIDs(ctx context.Context, ids []int64) ([]*User, error) {
 	return users, nil
 }
 
-// GetUserByName returns user by given name.
-func GetUserByName(ctx context.Context, name string) (*User, error) {
-	if len(name) == 0 {
-		return nil, ErrUserNotExist{Name: name}
+func getUserByNameWithTypes(ctx context.Context, name string, types ...UserType) (*User, error) {
+	u := &User{}
+	sess := db.GetEngine(ctx).Where(builder.Eq{"lower_name": strings.ToLower(name)})
+	if len(types) > 0 {
+		sess.In("`type`", types)
 	}
-	u := &User{LowerName: strings.ToLower(name), Type: UserTypeIndividual}
-	has, err := db.GetEngine(ctx).Get(u)
+	has, err := sess.Get(u)
 	if err != nil {
 		return nil, err
 	} else if !has {
 		return nil, ErrUserNotExist{Name: name}
 	}
 	return u, nil
+}
+
+// GetUserByName returns the user object by given name, any user type.
+func GetUserByName(ctx context.Context, name string) (*User, error) {
+	return getUserByNameWithTypes(ctx, name)
+}
+
+func GetIndividualUserByName(ctx context.Context, name string) (*User, error) {
+	return getUserByNameWithTypes(ctx, name, UserTypeIndividual)
 }
 
 // GetUserEmailsByNames returns a list of e-mails corresponds to names of users
@@ -1094,19 +1124,6 @@ func GetMailableUsersByIDs(ctx context.Context, ids []int64, isMention bool) ([]
 		And("`is_active` = ?", true).
 		In("`email_notifications_preference`", EmailNotificationsEnabled, EmailNotificationsAndYourOwn).
 		Find(&ous)
-}
-
-// GetUserNameByID returns username for the id
-func GetUserNameByID(ctx context.Context, id int64) (string, error) {
-	var name string
-	has, err := db.GetEngine(ctx).Table("user").Where("id = ?", id).Cols("name").Get(&name)
-	if err != nil {
-		return "", err
-	}
-	if has {
-		return name, nil
-	}
-	return "", nil
 }
 
 // GetUserIDsByNames returns a slice of ids corresponds to names.
@@ -1187,19 +1204,23 @@ func (eum *EmailUserMap) GetByEmail(email string) *User {
 
 func GetUsersByEmails(ctx context.Context, emails []string) (*EmailUserMap, error) {
 	if len(emails) == 0 {
-		return nil, nil
+		return nil, nil //nolint:nilnil // return nil when there are no emails to look up
 	}
 
 	needCheckEmails := make(container.Set[string])
 	needCheckUserNames := make(container.Set[string])
+	needCheckUserIDs := make(container.Set[int64])
 	noReplyAddressSuffix := "@" + strings.ToLower(setting.Service.NoReplyAddress)
 	for _, email := range emails {
 		emailLower := strings.ToLower(email)
-		if noReplyUserNameLower, ok := strings.CutSuffix(emailLower, noReplyAddressSuffix); ok {
-			needCheckUserNames.Add(noReplyUserNameLower)
-			needCheckEmails.Add(emailLower)
-		} else {
-			needCheckEmails.Add(emailLower)
+		needCheckEmails.Add(emailLower)
+		if localPart, ok := strings.CutSuffix(emailLower, noReplyAddressSuffix); ok {
+			name, id := parseLocalPartToNameID(localPart)
+			if id != 0 {
+				needCheckUserIDs.Add(id)
+			} else if name != "" {
+				needCheckUserNames.Add(name)
+			}
 		}
 	}
 
@@ -1229,14 +1250,57 @@ func GetUsersByEmails(ctx context.Context, emails []string) (*EmailUserMap, erro
 		}
 	}
 
-	users := make(map[int64]*User, len(needCheckUserNames))
-	if err := db.GetEngine(ctx).In("lower_name", needCheckUserNames.Values()).Find(&users); err != nil {
-		return nil, err
+	usersByIDs := make(map[int64]*User)
+	if len(needCheckUserIDs) > 0 || len(needCheckUserNames) > 0 {
+		cond := builder.NewCond()
+		if len(needCheckUserIDs) > 0 {
+			cond = cond.Or(builder.In("id", needCheckUserIDs.Values()))
+		}
+		if len(needCheckUserNames) > 0 {
+			cond = cond.Or(builder.In("lower_name", needCheckUserNames.Values()))
+		}
+		if err := db.GetEngine(ctx).Where(cond).Find(&usersByIDs); err != nil {
+			return nil, err
+		}
 	}
-	for _, user := range users {
-		results[strings.ToLower(user.GetPlaceholderEmail())] = user
+
+	usersByName := make(map[string]*User)
+	for _, user := range usersByIDs {
+		usersByName[user.LowerName] = user
 	}
+
+	for _, email := range emails {
+		emailLower := strings.ToLower(email)
+		if _, ok := results[emailLower]; ok {
+			continue
+		}
+
+		localPart, ok := strings.CutSuffix(emailLower, noReplyAddressSuffix)
+		if !ok {
+			continue
+		}
+		name, id := parseLocalPartToNameID(localPart)
+		if user, ok := usersByIDs[id]; ok {
+			results[emailLower] = user
+		} else if user, ok := usersByName[name]; ok {
+			results[emailLower] = user
+		}
+	}
+
 	return &EmailUserMap{results}, nil
+}
+
+// parseLocalPartToNameID attempts to unparse local-part of email that's in format id+user
+// returns user and id if possible
+func parseLocalPartToNameID(localPart string) (string, int64) {
+	var id int64
+	idstr, name, hasPlus := strings.Cut(localPart, "+")
+	if hasPlus {
+		id, _ = strconv.ParseInt(idstr, 10, 64)
+	} else {
+		name = idstr
+	}
+	return name, id
 }
 
 // GetUserByEmail returns the user object by given e-mail if exists.
@@ -1257,24 +1321,24 @@ func GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	}
 
 	// Finally, if email address is the protected email address:
-	if strings.HasSuffix(email, "@"+setting.Service.NoReplyAddress) {
-		username := strings.TrimSuffix(email, "@"+setting.Service.NoReplyAddress)
-		user := &User{}
-		has, err := db.GetEngine(ctx).Where("lower_name=?", username).Get(user)
-		if err != nil {
-			return nil, err
+	if localPart, ok := strings.CutSuffix(email, strings.ToLower("@"+setting.Service.NoReplyAddress)); ok {
+		name, id := parseLocalPartToNameID(localPart)
+		if id != 0 {
+			return GetUserByID(ctx, id)
 		}
-		if has {
-			return user, nil
-		}
+		return GetIndividualUserByName(ctx, name)
 	}
 
 	return nil, ErrUserNotExist{Name: email}
 }
 
-// GetUser checks if a user already exists
-func GetUser(ctx context.Context, user *User) (bool, error) {
-	return db.GetEngine(ctx).Get(user)
+func GetIndividualUser(ctx context.Context, user *User) (bool, error) {
+	// FIXME: the design is wrong, empty User fields won't apply, this function should be removed in the future
+	has, err := db.GetEngine(ctx).Get(user)
+	if has && user.Type != UserTypeIndividual {
+		has = false
+	}
+	return has, err
 }
 
 // GetUserByOpenID returns the user object by given OpenID if exists.

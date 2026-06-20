@@ -18,6 +18,7 @@ import (
 	"code.gitea.io/gitea/modules/reqctx"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/translation"
+	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/modules/web/middleware"
 )
 
@@ -147,10 +148,7 @@ func (b *Base) PlainText(status int, text string) {
 
 // Redirect redirects the request
 func (b *Base) Redirect(location string, status ...int) {
-	code := http.StatusSeeOther
-	if len(status) == 1 {
-		code = status[0]
-	}
+	code := util.OptionalArg(status, http.StatusSeeOther)
 
 	if !httplib.IsRelativeURL(location) {
 		// Some browsers (Safari) have buggy behavior for Cookie + Cache + External Redirection, eg: /my-path => https://other/path
@@ -172,15 +170,15 @@ func (b *Base) Redirect(location string, status ...int) {
 	http.Redirect(b.Resp, b.Req, location, code)
 }
 
-type ServeHeaderOptions httplib.ServeHeaderOptions
+type ServeHeaderOptions = httplib.ServeHeaderOptions
 
-func (b *Base) SetServeHeaders(opt *ServeHeaderOptions) {
-	httplib.ServeSetHeaders(b.Resp, (*httplib.ServeHeaderOptions)(opt))
+func (b *Base) SetServeHeaders(opts ServeHeaderOptions) {
+	httplib.ServeSetHeaders(b.Resp, opts)
 }
 
 // ServeContent serves content to http request
-func (b *Base) ServeContent(r io.ReadSeeker, opts *ServeHeaderOptions) {
-	httplib.ServeSetHeaders(b.Resp, (*httplib.ServeHeaderOptions)(opts))
+func (b *Base) ServeContent(r io.ReadSeeker, opts ServeHeaderOptions) {
+	httplib.ServeSetHeaders(b.Resp, opts)
 	http.ServeContent(b.Resp, b.Req, opts.Filename, opts.LastModified, r)
 }
 

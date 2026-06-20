@@ -20,6 +20,7 @@ import (
 	"code.gitea.io/gitea/models/unittest"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/git"
+	"code.gitea.io/gitea/modules/gitrepo"
 	"code.gitea.io/gitea/modules/test"
 	"code.gitea.io/gitea/modules/translation"
 	"code.gitea.io/gitea/modules/util"
@@ -86,7 +87,6 @@ func testEditorProtectedBranch(t *testing.T) {
 	session := loginUser(t, "user2")
 	// Change the "master" branch to "protected"
 	req := NewRequestWithValues(t, "POST", "/user2/repo1/settings/branches/edit", map[string]string{
-		"_csrf":       GetUserCSRFToken(t, session),
 		"rule_name":   "master",
 		"enable_push": "true",
 	})
@@ -98,6 +98,42 @@ func testEditorProtectedBranch(t *testing.T) {
 	resp := testEditorActionPostRequest(t, session, "/user2/repo1/_new/master/", map[string]string{"tree_path": "test-protected-branch.txt", "commit_choice": "direct"})
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 	assert.Equal(t, `Cannot commit to protected branch "master".`, test.ParseJSONError(resp.Body.Bytes()).ErrorMessage)
+
+	// Change "master" branch to mark files under "docs/" as unprotected
+	req = NewRequestWithValues(t, "POST", "/user2/repo1/settings/branches/edit", map[string]string{
+		"rule_name":                 "master",
+		"protected_file_patterns":   "",
+		"unprotected_file_patterns": "docs/*.md",
+		"enable_push":               "true",
+	})
+	session.MakeRequest(t, req, http.StatusSeeOther)
+	flashMsg = session.GetCookieFlashMessage()
+	assert.Equal(t, `Branch protection for rule "master" has been updated.`, flashMsg.SuccessMsg)
+
+	resp = testEditorActionPostRequest(t, session, "/user2/repo1/_new/master/docs/new.md", map[string]string{"tree_path": "docs/new.md", "commit_choice": "direct"})
+	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Contains(t, resp.Body.String(), `"redirect":"/user2/repo1/src/branch/master/docs/new.md"`)
+
+	// Form's destination (renamed.md) is decided by the pre-receive hook, not the controller.
+	resp = testEditorActionPostRequest(t, session, "/user2/repo1/_edit/master/docs/new.md", map[string]string{
+		"content":       "renamed via editor",
+		"commit_choice": "direct",
+		"tree_path":     "docs/renamed.md",
+	})
+	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Contains(t, resp.Body.String(), `"redirect":"/user2/repo1/src/branch/master/docs/renamed.md"`)
+
+	// Protected source path: controller rejects up-front regardless of unprotected destination.
+	resp = testEditorActionPostRequest(t, session, "/user2/repo1/_edit/master/README.md", map[string]string{
+		"commit_choice": "direct",
+		"tree_path":     "docs/from-readme.md",
+	})
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, `Cannot commit to protected branch "master".`, test.ParseJSONError(resp.Body.Bytes()).ErrorMessage)
+
+	resp = testEditorActionPostRequest(t, session, "/user2/repo1/_delete/master/README.md", map[string]string{"commit_choice": "direct"})
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, `Cannot commit to protected branch "master".`, test.ParseJSONError(resp.Body.Bytes()).ErrorMessage)
 }
 
 func testEditorActionPostRequest(t *testing.T, session *TestSession, requestPath string, params map[string]string) *httptest.ResponseRecorder {
@@ -105,7 +141,6 @@ func testEditorActionPostRequest(t *testing.T, session *TestSession, requestPath
 	resp := session.MakeRequest(t, req, http.StatusOK)
 	htmlDoc := NewHTMLParser(t, resp.Body)
 	form := map[string]string{
-		"_csrf":       htmlDoc.GetCSRF(),
 		"last_commit": htmlDoc.GetInputValueByName("last_commit"),
 	}
 	maps.Copy(form, params)
@@ -149,11 +184,10 @@ func testEditFileToNewBranch(t *testing.T, session *TestSession, user, repo, bra
 func testEditorDiffPreview(t *testing.T) {
 	session := loginUser(t, "user2")
 	req := NewRequestWithValues(t, "POST", "/user2/repo1/_preview/master/README.md", map[string]string{
-		"_csrf":   GetUserCSRFToken(t, session),
-		"content": "Hello, World (Edited)\n",
+		"content": "# repo1 (Edited)",
 	})
 	resp := session.MakeRequest(t, req, http.StatusOK)
-	assert.Contains(t, resp.Body.String(), `<span class="added-code">Hello, World (Edited)</span>`)
+	assert.Contains(t, resp.Body.String(), `<span class="added-code"> (Edited)</span>`)
 }
 
 func testEditorPatchFile(t *testing.T) {
@@ -187,7 +221,7 @@ func testEditorWebGitCommitEmail(t *testing.T) {
 	require.True(t, user.KeepEmailPrivate)
 
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
-	gitRepo, _ := git.OpenRepository(t.Context(), repo1.RepoPath())
+	gitRepo, _ := gitrepo.OpenRepository(t.Context(), repo1)
 	defer gitRepo.Close()
 	getLastCommit := func(t *testing.T) *git.Commit {
 		c, err := gitRepo.GetBranchCommit("master")
@@ -199,7 +233,6 @@ func testEditorWebGitCommitEmail(t *testing.T) {
 
 	makeReq := func(t *testing.T, link string, params map[string]string, expectedUserName, expectedEmail string) *httptest.ResponseRecorder {
 		lastCommit := getLastCommit(t)
-		params["_csrf"] = GetUserCSRFToken(t, session)
 		params["last_commit"] = lastCommit.ID.String()
 		params["commit_choice"] = "direct"
 		req := NewRequestWithValues(t, "POST", link, params)
@@ -224,7 +257,6 @@ func testEditorWebGitCommitEmail(t *testing.T) {
 		uploadForm := multipart.NewWriter(body)
 		file, _ := uploadForm.CreateFormFile("file", name)
 		_, _ = io.Copy(file, strings.NewReader(content))
-		_ = uploadForm.WriteField("_csrf", GetUserCSRFToken(t, session))
 		_ = uploadForm.Close()
 
 		req := NewRequestWithBody(t, "POST", "/user2/repo1/upload-file", body)
@@ -262,7 +294,7 @@ func testEditorWebGitCommitEmail(t *testing.T) {
 		t.Run("DefaultEmailKeepPrivate", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			paramsForKeepPrivate["commit_email"] = ""
-			resp1 = makeReq(t, linkForKeepPrivate, paramsForKeepPrivate, "User Two", "user2@noreply.example.org")
+			resp1 = makeReq(t, linkForKeepPrivate, paramsForKeepPrivate, "User Two", "2+user2@noreply.example.org")
 		})
 		t.Run("ChooseEmail", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
@@ -346,7 +378,7 @@ func testForkToEditFile(t *testing.T, session *TestSession, user, owner, repo, b
 		assert.Contains(t, resp.Body.String(), "Fork Repository to Propose Changes")
 
 		// fork the repository
-		req = NewRequestWithValues(t, "POST", path.Join(owner, repo, "_fork", branch), map[string]string{"_csrf": GetUserCSRFToken(t, session)})
+		req = NewRequest(t, "POST", path.Join(owner, repo, "_fork", branch))
 		resp = session.MakeRequest(t, req, http.StatusOK)
 		assert.JSONEq(t, `{"redirect":""}`, resp.Body.String())
 	}
@@ -358,7 +390,6 @@ func testForkToEditFile(t *testing.T, session *TestSession, user, owner, repo, b
 		// Archive the repository
 		req := NewRequestWithValues(t, "POST", path.Join(user, repo, "settings"),
 			map[string]string{
-				"_csrf":     GetUserCSRFToken(t, session),
 				"repo_name": repo,
 				"action":    "archive",
 			},
@@ -373,7 +404,6 @@ func testForkToEditFile(t *testing.T, session *TestSession, user, owner, repo, b
 		// Unfork the repository
 		req = NewRequestWithValues(t, "POST", path.Join(user, repo, "settings"),
 			map[string]string{
-				"_csrf":     GetUserCSRFToken(t, session),
 				"repo_name": repo,
 				"action":    "convert_fork",
 			},
@@ -409,7 +439,6 @@ func testForkToEditFile(t *testing.T, session *TestSession, user, owner, repo, b
 		resp := session.MakeRequest(t, req, http.StatusOK)
 		htmlDoc := NewHTMLParser(t, resp.Body)
 		editRequestForm := map[string]string{
-			"_csrf":         GetUserCSRFToken(t, session),
 			"last_commit":   htmlDoc.GetInputValueByName("last_commit"),
 			"tree_path":     filePath,
 			"content":       "new content in fork",

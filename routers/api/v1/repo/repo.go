@@ -28,6 +28,7 @@ import (
 	repo_module "code.gitea.io/gitea/modules/repository"
 	"code.gitea.io/gitea/modules/setting"
 	api "code.gitea.io/gitea/modules/structs"
+	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/modules/validation"
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/routers/api/v1/utils"
@@ -130,9 +131,6 @@ func Search(ctx *context.APIContext) {
 	//     "$ref": "#/responses/validationError"
 
 	private := ctx.IsSigned && (ctx.FormString("private") == "" || ctx.FormBool("private"))
-	if ctx.PublicOnly {
-		private = false
-	}
 
 	opts := repo_model.SearchRepoOptions{
 		ListOptions:        utils.GetListOptions(ctx),
@@ -148,6 +146,7 @@ func Search(ctx *context.APIContext) {
 		StarredByID:        ctx.FormInt64("starredBy"),
 		IncludeDescription: ctx.FormBool("includeDesc"),
 	}
+	opts.ApplyPublicOnly(ctx.PublicOnly)
 
 	if ctx.FormString("template") != "" {
 		opts.Template = optional.Some(ctx.FormBool("template"))
@@ -220,7 +219,7 @@ func Search(ctx *context.APIContext) {
 			})
 			return
 		}
-		permission, err := access_model.GetUserRepoPermission(ctx, repo, ctx.Doer)
+		permission, err := access_model.GetDoerRepoPermission(ctx, repo, ctx.Doer)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, api.SearchError{
 				OK:    false,
@@ -229,7 +228,7 @@ func Search(ctx *context.APIContext) {
 		}
 		results[i] = convert.ToRepo(ctx, repo, permission)
 	}
-	ctx.SetLinkHeader(int(count), opts.PageSize)
+	ctx.SetLinkHeader(count, opts.PageSize)
 	ctx.SetTotalCountHeader(count)
 	ctx.JSON(http.StatusOK, api.SearchResults{
 		OK:   true,
@@ -270,6 +269,8 @@ func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.Cre
 			db.IsErrNamePatternNotAllowed(err) ||
 			label.IsErrTemplateLoad(err) {
 			ctx.APIError(http.StatusUnprocessableEntity, err)
+		} else if errors.Is(err, util.ErrPermissionDenied) {
+			ctx.APIError(http.StatusForbidden, err)
 		} else {
 			ctx.APIErrorInternal(err)
 		}
@@ -495,30 +496,10 @@ func CreateOrgRepo(ctx *context.APIContext) {
 	//   "403":
 	//     "$ref": "#/responses/forbidden"
 	opt := web.GetForm(ctx).(*api.CreateRepoOption)
-	org, err := organization.GetOrgByName(ctx, ctx.PathParam("org"))
-	if err != nil {
-		if organization.IsErrOrgNotExist(err) {
-			ctx.APIError(http.StatusUnprocessableEntity, err)
-		} else {
-			ctx.APIErrorInternal(err)
-		}
+	orgName := ctx.PathParam("org")
+	org := prepareDoerCreateRepoInOrg(ctx, orgName)
+	if ctx.Written() {
 		return
-	}
-
-	if !organization.HasOrgOrUserVisible(ctx, org.AsUser(), ctx.Doer) {
-		ctx.APIErrorNotFound("HasOrgOrUserVisible", nil)
-		return
-	}
-
-	if !ctx.Doer.IsAdmin {
-		canCreate, err := org.CanCreateOrgRepo(ctx, ctx.Doer.ID)
-		if err != nil {
-			ctx.APIErrorInternal(err)
-			return
-		} else if !canCreate {
-			ctx.APIError(http.StatusForbidden, "Given user is not allowed to create repository in organization.")
-			return
-		}
 	}
 	CreateUserRepo(ctx, org.AsUser(), *opt)
 }
@@ -584,8 +565,12 @@ func GetByID(ctx *context.APIContext) {
 		}
 		return
 	}
+	if !ctx.TokenCanAccessRepo(repo) {
+		ctx.APIErrorNotFound()
+		return
+	}
 
-	permission, err := access_model.GetUserRepoPermission(ctx, repo, ctx.Doer)
+	permission, err := access_model.GetDoerRepoPermission(ctx, repo, ctx.Doer)
 	if err != nil {
 		ctx.APIErrorInternal(err)
 		return
@@ -881,77 +866,44 @@ func updateRepoUnits(ctx *context.APIContext, opts api.EditRepoOption) error {
 		}
 	}
 
-	if opts.HasPullRequests != nil && !unit_model.TypePullRequests.UnitGlobalDisabled() {
-		if *opts.HasPullRequests {
-			// We do allow setting individual PR settings through the API, so
-			// we get the config settings and then set them
-			// if those settings were provided in the opts.
-			unit, err := repo.GetUnit(ctx, unit_model.TypePullRequests)
-			var config *repo_model.PullRequestsConfig
-			if err != nil {
-				// Unit type doesn't exist so we make a new config file with default values
-				config = &repo_model.PullRequestsConfig{
-					IgnoreWhitespaceConflicts:     false,
-					AllowMerge:                    true,
-					AllowRebase:                   true,
-					AllowRebaseMerge:              true,
-					AllowSquash:                   true,
-					AllowFastForwardOnly:          true,
-					AllowManualMerge:              true,
-					AutodetectManualMerge:         false,
-					AllowRebaseUpdate:             true,
-					DefaultDeleteBranchAfterMerge: false,
-					DefaultMergeStyle:             repo_model.MergeStyleMerge,
-					DefaultAllowMaintainerEdit:    false,
-				}
-			} else {
-				config = unit.PullRequestsConfig()
-			}
-
-			if opts.IgnoreWhitespaceConflicts != nil {
-				config.IgnoreWhitespaceConflicts = *opts.IgnoreWhitespaceConflicts
-			}
-			if opts.AllowMerge != nil {
-				config.AllowMerge = *opts.AllowMerge
-			}
-			if opts.AllowRebase != nil {
-				config.AllowRebase = *opts.AllowRebase
-			}
-			if opts.AllowRebaseMerge != nil {
-				config.AllowRebaseMerge = *opts.AllowRebaseMerge
-			}
-			if opts.AllowSquash != nil {
-				config.AllowSquash = *opts.AllowSquash
-			}
-			if opts.AllowFastForwardOnly != nil {
-				config.AllowFastForwardOnly = *opts.AllowFastForwardOnly
-			}
-			if opts.AllowManualMerge != nil {
-				config.AllowManualMerge = *opts.AllowManualMerge
-			}
-			if opts.AutodetectManualMerge != nil {
-				config.AutodetectManualMerge = *opts.AutodetectManualMerge
-			}
-			if opts.AllowRebaseUpdate != nil {
-				config.AllowRebaseUpdate = *opts.AllowRebaseUpdate
-			}
-			if opts.DefaultDeleteBranchAfterMerge != nil {
-				config.DefaultDeleteBranchAfterMerge = *opts.DefaultDeleteBranchAfterMerge
-			}
-			if opts.DefaultMergeStyle != nil {
-				config.DefaultMergeStyle = repo_model.MergeStyle(*opts.DefaultMergeStyle)
-			}
-			if opts.DefaultAllowMaintainerEdit != nil {
-				config.DefaultAllowMaintainerEdit = *opts.DefaultAllowMaintainerEdit
-			}
-
-			units = append(units, repo_model.RepoUnit{
-				RepoID: repo.ID,
-				Type:   unit_model.TypePullRequests,
-				Config: config,
-			})
-		} else {
+	if !unit_model.TypePullRequests.UnitGlobalDisabled() {
+		mustDeletePullRequestUnit := opts.HasPullRequests != nil && !*opts.HasPullRequests
+		mustInsertPullRequestUnit := opts.HasPullRequests != nil && *opts.HasPullRequests
+		if mustDeletePullRequestUnit {
 			deleteUnitTypes = append(deleteUnitTypes, unit_model.TypePullRequests)
+		} else {
+			// We do allow setting individual PR settings through the API,
+			// so we get the config settings and then set them if those settings were provided in the opts.
+			unit, err := repo.GetUnit(ctx, unit_model.TypePullRequests)
+			if err != nil && !errors.Is(err, util.ErrNotExist) {
+				return err
+			}
+			if unit == nil {
+				// Unit doesn't exist yet but is being enabled, create with defaults
+				unit = new(repo_model.DefaultPullRequestsUnit(repo.ID))
+			}
+
+			changed := new(false)
+			config := unit.PullRequestsConfig()
+			optional.AssignPtrValue(changed, &config.IgnoreWhitespaceConflicts, opts.IgnoreWhitespaceConflicts)
+			optional.AssignPtrValue(changed, &config.AllowMerge, opts.AllowMerge)
+			optional.AssignPtrValue(changed, &config.AllowRebase, opts.AllowRebase)
+			optional.AssignPtrValue(changed, &config.AllowRebaseMerge, opts.AllowRebaseMerge)
+			optional.AssignPtrValue(changed, &config.AllowSquash, opts.AllowSquash)
+			optional.AssignPtrValue(changed, &config.AllowFastForwardOnly, opts.AllowFastForwardOnly)
+			optional.AssignPtrValue(changed, &config.AllowManualMerge, opts.AllowManualMerge)
+			optional.AssignPtrValue(changed, &config.AutodetectManualMerge, opts.AutodetectManualMerge)
+			optional.AssignPtrValue(changed, &config.AllowRebaseUpdate, opts.AllowRebaseUpdate)
+			optional.AssignPtrValue(changed, &config.DefaultDeleteBranchAfterMerge, opts.DefaultDeleteBranchAfterMerge)
+			optional.AssignPtrValue(changed, &config.DefaultAllowMaintainerEdit, opts.DefaultAllowMaintainerEdit)
+			optional.AssignPtrString(changed, &config.DefaultMergeStyle, opts.DefaultMergeStyle)
+			if *changed || mustInsertPullRequestUnit {
+				units = append(units, repo_model.RepoUnit{
+					RepoID: repo.ID,
+					Type:   unit_model.TypePullRequests,
+					Config: config,
+				})
+			}
 		}
 	}
 
@@ -1304,6 +1256,7 @@ func ListRepoActivityFeeds(ctx *context.APIContext) {
 		Date:           ctx.FormString("date"),
 		ListOptions:    listOptions,
 	}
+	opts.ApplyPublicOnly(ctx.PublicOnly)
 
 	feeds, count, err := feed_service.GetFeeds(ctx, opts)
 	if err != nil {

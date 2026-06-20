@@ -20,6 +20,7 @@ import (
 	"code.gitea.io/gitea/models/unit"
 	"code.gitea.io/gitea/modules/base"
 	"code.gitea.io/gitea/modules/glob"
+	"code.gitea.io/gitea/modules/json"
 	"code.gitea.io/gitea/modules/templates"
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/routers/web/repo"
@@ -312,10 +313,14 @@ func DeleteProtectedBranchRulePost(ctx *context.Context) {
 }
 
 func UpdateBranchProtectionPriories(ctx *context.Context) {
-	form := web.GetForm(ctx).(*forms.ProtectBranchPriorityForm)
-	repo := ctx.Repo.Repository
-
-	if err := git_model.UpdateProtectBranchPriorities(ctx, repo, form.IDs); err != nil {
+	var form struct {
+		IDs []int64 `json:"ids"`
+	}
+	if err := json.NewDecoder(ctx.Req.Body).Decode(&form); err != nil {
+		ctx.JSONError("invalid argument")
+		return
+	}
+	if err := git_model.UpdateProtectBranchPriorities(ctx, ctx.Repo.Repository, form.IDs); err != nil {
 		ctx.ServerError("UpdateProtectBranchPriorities", err)
 		return
 	}
@@ -336,7 +341,7 @@ func RenameBranchPost(ctx *context.Context) {
 		return
 	}
 
-	msg, err := repository.RenameBranch(ctx, ctx.Repo.Repository, ctx.Doer, ctx.Repo.GitRepo, form.From, form.To)
+	msg, err := repository.RenameBranch(ctx, ctx.Repo.Repository, ctx.Doer, form.From, form.To)
 	if err != nil {
 		switch {
 		case repo_model.IsErrUserDoesNotHaveAccessToRepo(err):

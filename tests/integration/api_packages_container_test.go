@@ -88,34 +88,34 @@ func TestPackageContainer(t *testing.T) {
 			Token string `json:"token"`
 		}
 
-		defaultAuthenticateValues := []string{`Bearer realm="` + setting.AppURL + `v2/token",service="container_registry",scope="*"`}
-
+		wwwAuthenticateForPublic := []string{
+			`Bearer realm="` + setting.AppURL + `v2/token",service="container_registry",scope="*"`,
+		}
+		wwwAuthenticateForRequiredSignIn := []string{
+			`Bearer realm="` + setting.AppURL + `v2/token",service="container_registry",scope="*"`,
+			`Basic realm="Gitea Container Registry"`,
+		}
 		t.Run("Anonymous", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
 			req := NewRequest(t, "GET", setting.AppURL+"v2")
 			resp := MakeRequest(t, req, http.StatusUnauthorized)
-
-			assert.ElementsMatch(t, defaultAuthenticateValues, resp.Header().Values("WWW-Authenticate"))
+			assert.ElementsMatch(t, wwwAuthenticateForPublic, resp.Header().Values("WWW-Authenticate"))
 
 			req = NewRequest(t, "GET", setting.AppURL+"v2/token")
 			resp = MakeRequest(t, req, http.StatusOK)
-
-			tokenResponse := &TokenResponse{}
-			DecodeJSON(t, resp, &tokenResponse)
-
-			assert.NotEmpty(t, tokenResponse.Token)
-
+			tokenResponse := DecodeJSON(t, resp, &TokenResponse{})
+			require.NotEmpty(t, tokenResponse.Token)
 			anonymousToken = "Bearer " + tokenResponse.Token
 
-			req = NewRequest(t, "GET", setting.AppURL+"v2").
-				AddTokenAuth(anonymousToken)
+			req = NewRequest(t, "GET", setting.AppURL+"v2").AddTokenAuth(anonymousToken)
 			MakeRequest(t, req, http.StatusOK)
 
 			defer test.MockVariableValue(&setting.Service.RequireSignInViewStrict, true)()
 
 			req = NewRequest(t, "GET", setting.AppURL+"v2")
-			MakeRequest(t, req, http.StatusUnauthorized)
+			resp = MakeRequest(t, req, http.StatusUnauthorized)
+			assert.ElementsMatch(t, wwwAuthenticateForRequiredSignIn, resp.Header().Values("WWW-Authenticate"))
 
 			req = NewRequest(t, "GET", setting.AppURL+"v2/token")
 			MakeRequest(t, req, http.StatusUnauthorized)
@@ -132,17 +132,13 @@ func TestPackageContainer(t *testing.T) {
 
 			req := NewRequest(t, "GET", setting.AppURL+"v2")
 			resp := MakeRequest(t, req, http.StatusUnauthorized)
+			assert.ElementsMatch(t, wwwAuthenticateForPublic, resp.Header().Values("WWW-Authenticate"))
 
-			assert.ElementsMatch(t, defaultAuthenticateValues, resp.Header().Values("WWW-Authenticate"))
-
-			req = NewRequest(t, "GET", setting.AppURL+"v2/token").
-				AddBasicAuth(user.Name)
+			req = NewRequest(t, "GET", setting.AppURL+"v2/token").AddBasicAuth(user.Name)
 			resp = MakeRequest(t, req, http.StatusOK)
-
-			tokenResponse := &TokenResponse{}
-			DecodeJSON(t, resp, &tokenResponse)
-
+			tokenResponse := DecodeJSON(t, resp, &TokenResponse{})
 			assert.NotEmpty(t, tokenResponse.Token)
+
 			pkgMeta, err := package_service.ParseAuthorizationToken(tokenResponse.Token)
 			assert.NoError(t, err)
 			assert.Equal(t, user.ID, pkgMeta.UserID)
@@ -826,7 +822,6 @@ func TestPackageContainer(t *testing.T) {
 		newOwnerName := "newUsername"
 
 		req := NewRequestWithValues(t, "POST", "/user/settings", map[string]string{
-			"_csrf":    GetUserCSRFToken(t, session),
 			"name":     newOwnerName,
 			"email":    "user2@example.com",
 			"language": "en-US",
@@ -836,7 +831,6 @@ func TestPackageContainer(t *testing.T) {
 		t.Run(fmt.Sprintf("Catalog[%s]", newOwnerName), checkCatalog(newOwnerName))
 
 		req = NewRequestWithValues(t, "POST", "/user/settings", map[string]string{
-			"_csrf":    GetUserCSRFToken(t, session),
 			"name":     user.Name,
 			"email":    "user2@example.com",
 			"language": "en-US",

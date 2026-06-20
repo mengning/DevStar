@@ -10,7 +10,7 @@
 	<div class="inline field tw-text-center required">
 		<div id="captcha" data-captcha-type="g-recaptcha" class="g-recaptcha-style" data-sitekey="{{.RecaptchaSitekey}}"></div>
 	</div>
-	<script defer src='{{URLJoin .RecaptchaURL "api.js"}}'></script>
+	<script defer src='{{.RecaptchaAPIScriptURL}}'></script>
 {{else if eq .CaptchaType "hcaptcha"}}
 	<div class="inline field tw-text-center required">
 		<div id="captcha" data-captcha-type="h-captcha" class="h-captcha-style" data-sitekey="{{.HcaptchaSitekey}}"></div>
@@ -19,7 +19,10 @@
 {{else if eq .CaptchaType "mcaptcha"}}
 	<div class="inline field tw-text-center">
 		<div class="m-captcha-style" id="mcaptcha__widget-container"></div>
-		<div id="captcha" data-captcha-type="m-captcha" data-sitekey="{{.McaptchaSitekey}}" data-instance-url="{{.McaptchaURL}}"></div>
+		<label id="mcaptcha__token-label" hidden data-mcaptcha_url="{{.McaptchaURL}}/widget?sitekey={{.McaptchaSitekey}}">
+			<input id="mcaptcha__token" name="mcaptcha__token">{{/* the id and name are hard-coded in the library, cant't be changed */}}
+		</label>
+		<div id="captcha" data-captcha-type="m-captcha"></div>
 	</div>
 {{else if eq .CaptchaType "cfturnstile"}}
 	<div class="inline field tw-text-center">

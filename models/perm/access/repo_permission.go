@@ -5,9 +5,13 @@ package access
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"slices"
+	"strings"
 
+	actions_model "code.gitea.io/gitea/models/actions"
 	"code.gitea.io/gitea/models/db"
 	"code.gitea.io/gitea/models/organization"
 	perm_model "code.gitea.io/gitea/models/perm"
@@ -167,7 +171,8 @@ func (p *Permission) ReadableUnitTypes() []unit.Type {
 }
 
 func (p *Permission) LogString() string {
-	format := "<Permission AccessMode=%s, %d Units, %d UnitsMode(s): ["
+	var format strings.Builder
+	format.WriteString("<Permission AccessMode=%s, %d Units, %d UnitsMode(s): [")
 	args := []any{p.AccessMode.ToString(), len(p.units), len(p.unitsMode)}
 
 	for i, u := range p.units {
@@ -179,19 +184,19 @@ func (p *Permission) LogString() string {
 				config = err.Error()
 			}
 		}
-		format += "\n\tunits[%d]: ID=%d RepoID=%d Type=%s Config=%s"
+		format.WriteString("\n\tunits[%d]: ID=%d RepoID=%d Type=%s Config=%s")
 		args = append(args, i, u.ID, u.RepoID, u.Type.LogString(), config)
 	}
 	for key, value := range p.unitsMode {
-		format += "\n\tunitsMode[%-v]: %-v"
+		format.WriteString("\n\tunitsMode[%-v]: %-v")
 		args = append(args, key.LogString(), value.LogString())
 	}
-	format += "\n\tanonymousAccessMode: %-v"
+	format.WriteString("\n\tanonymousAccessMode: %-v")
 	args = append(args, p.anonymousAccessMode)
-	format += "\n\teveryoneAccessMode: %-v"
+	format.WriteString("\n\teveryoneAccessMode: %-v")
 	args = append(args, p.everyoneAccessMode)
-	format += "\n\t]>"
-	return fmt.Sprintf(format, args...)
+	format.WriteString("\n\t]>")
+	return fmt.Sprintf(format.String(), args...)
 }
 
 func applyPublicAccessPermission(unitType unit.Type, accessMode perm_model.AccessMode, modeMap *map[unit.Type]perm_model.AccessMode) {
@@ -254,8 +259,139 @@ func finalProcessRepoUnitPermission(user *user_model.User, perm *Permission) {
 	}
 }
 
-// GetUserRepoPermission returns the user permissions to the repository
-func GetUserRepoPermission(ctx context.Context, repo *repo_model.Repository, user *user_model.User) (perm Permission, err error) {
+func checkSameOwnerCrossRepoAccess(ctx context.Context, taskRepo, targetRepo *repo_model.Repository, isForkPR bool) bool {
+	if isForkPR {
+		// Fork PRs are never allowed cross-repo access to other private repositories of the owner.
+		return false
+	}
+	if taskRepo.OwnerID != targetRepo.OwnerID {
+		return false
+	}
+	ownerCfg, err := actions_model.GetOwnerActionsConfig(ctx, targetRepo.OwnerID)
+	if err != nil {
+		log.Error("GetOwnerActionsConfig: %v", err)
+		return false
+	}
+
+	return slices.Contains(ownerCfg.AllowedCrossRepoIDs, targetRepo.ID)
+}
+
+// GetActionsUserRepoPermission returns the actions user permissions to the repository
+func GetActionsUserRepoPermission(ctx context.Context, repo *repo_model.Repository, actionsUser *user_model.User, taskID int64) (perm Permission, err error) {
+	if actionsUser.ID != user_model.ActionsUserID {
+		return perm, errors.New("api GetActionsUserRepoPermission can only be called by the actions user")
+	}
+	task, err := actions_model.GetTaskByID(ctx, taskID)
+	if err != nil {
+		return perm, err
+	}
+
+	if err := task.LoadJob(ctx); err != nil {
+		return perm, err
+	}
+
+	var taskRepo *repo_model.Repository
+	if task.RepoID != repo.ID {
+		if err := task.Job.LoadRepo(ctx); err != nil {
+			return perm, err
+		}
+		taskRepo = task.Job.Repo
+	} else {
+		taskRepo = repo
+	}
+
+	// Compute effective permissions for this task against the target repo
+	effectivePerms, err := actions_model.ComputeTaskTokenPermissions(ctx, task, repo)
+	if err != nil {
+		return perm, err
+	}
+	if task.RepoID != repo.ID {
+		// Cross-repo access must also respect the target repo's permission ceiling.
+		targetRepoActionsCfg := repo.MustGetUnit(ctx, unit.TypeActions).ActionsConfig()
+		if targetRepoActionsCfg.OverrideOwnerConfig {
+			effectivePerms = targetRepoActionsCfg.ClampPermissions(effectivePerms)
+		} else {
+			targetRepoOwnerActionsCfg, err := actions_model.GetOwnerActionsConfig(ctx, repo.OwnerID)
+			if err != nil {
+				return perm, err
+			}
+			effectivePerms = targetRepoOwnerActionsCfg.ClampPermissions(effectivePerms)
+		}
+	}
+
+	if err := repo.LoadUnits(ctx); err != nil {
+		return perm, err
+	}
+
+	var maxPerm Permission
+
+	// Set up per-unit access modes based on configured permissions
+	maxPerm.units = repo.Units
+	maxPerm.unitsMode = maps.Clone(effectivePerms.UnitAccessModes)
+
+	// Check permission like simple user but limit to read-only (PR #36095)
+	// Enhanced to also grant read-only access if isSameRepo is true and target repository is public
+	botPerm, err := GetIndividualUserRepoPermission(ctx, repo, user_model.NewActionsUser())
+	if err != nil {
+		return perm, err
+	}
+	if botPerm.AccessMode >= perm_model.AccessModeRead {
+		// Public repo allows read access, increase permissions to at least read
+		// Otherwise you cannot access your own repository if your permissions are set to none but the repository is public
+		for _, u := range repo.Units {
+			if botPerm.CanRead(u.Type) {
+				maxPerm.unitsMode[u.Type] = max(maxPerm.unitsMode[u.Type], perm_model.AccessModeRead)
+			}
+		}
+	}
+
+	if task.RepoID == repo.ID {
+		return maxPerm, nil
+	}
+
+	if checkSameOwnerCrossRepoAccess(ctx, taskRepo, repo, task.IsForkPullRequest) {
+		// Access allowed by owner policy (grants access to private repos).
+		// Note: maxPerm has already been restricted to Read-Only in ComputeTaskTokenPermissions
+		// because isSameRepo is false.
+		return maxPerm, nil
+	}
+
+	// Fall through to allow public repository read access via botPerm check below
+
+	// Check if the repo is public or the Bot has explicit access
+	if botPerm.AccessMode >= perm_model.AccessModeRead {
+		return maxPerm, nil
+	}
+
+	// Check Collaborative Owner and explicit Bot permissions
+	// We allow access if:
+	// 1. It's a collaborative owner relationship
+	// 2. The Actions Bot user has been explicitly granted access and repository is private
+	// 3. The repository is public (handled by botPerm above)
+
+	if taskRepo.IsPrivate {
+		actionsUnit := repo.MustGetUnit(ctx, unit.TypeActions)
+		if actionsUnit.ActionsConfig().IsCollaborativeOwner(taskRepo.OwnerID) {
+			return maxPerm, nil
+		}
+	}
+
+	return perm, nil
+}
+
+// GetDoerRepoPermission returns the repository permission for the current actor,
+// dispatching to GetActionsUserRepoPermission when the actor is an Actions token user.
+func GetDoerRepoPermission(ctx context.Context, repo *repo_model.Repository, user *user_model.User) (Permission, error) {
+	if taskID, ok := user_model.GetActionsUserTaskID(user); ok {
+		return GetActionsUserRepoPermission(ctx, repo, user, taskID)
+	}
+	return GetIndividualUserRepoPermission(ctx, repo, user)
+}
+
+// GetIndividualUserRepoPermission returns the permissions for an explicit user identity.
+// In most request paths, callers should use GetDoerRepoPermission instead.
+// Unlike GetDoerRepoPermission, this helper does not resolve Actions task users.
+func GetIndividualUserRepoPermission(ctx context.Context, repo *repo_model.Repository, user *user_model.User) (perm Permission, err error) {
 	defer func() {
 		if err == nil {
 			finalProcessRepoUnitPermission(user, &perm)
@@ -414,8 +550,9 @@ func AccessLevel(ctx context.Context, user *user_model.User, repo *repo_model.Re
 
 // AccessLevelUnit returns the Access a user has to a repository's. Will return NoneAccess if the
 // user does not have access.
+// This helper only supports explicit user identities and does not resolve Actions task users.
 func AccessLevelUnit(ctx context.Context, user *user_model.User, repo *repo_model.Repository, unitType unit.Type) (perm_model.AccessMode, error) { //nolint:revive // export stutter
-	perm, err := GetUserRepoPermission(ctx, repo, user)
+	perm, err := GetIndividualUserRepoPermission(ctx, repo, user)
 	if err != nil {
 		return perm_model.AccessModeNone, err
 	}
@@ -434,7 +571,7 @@ func CanBeAssigned(ctx context.Context, user *user_model.User, repo *repo_model.
 	if user.IsOrganization() {
 		return false, fmt.Errorf("organization can't be added as assignee [user_id: %d, repo_id: %d]", user.ID, repo.ID)
 	}
-	perm, err := GetUserRepoPermission(ctx, repo, user)
+	perm, err := GetIndividualUserRepoPermission(ctx, repo, user)
 	if err != nil {
 		return false, err
 	}
@@ -443,6 +580,7 @@ func CanBeAssigned(ctx context.Context, user *user_model.User, repo *repo_model.
 }
 
 // HasAnyUnitAccess see the comment of "perm.HasAnyUnitAccess"
+// This helper only supports explicit user identities and does not resolve Actions task users.
 func HasAnyUnitAccess(ctx context.Context, userID int64, repo *repo_model.Repository) (bool, error) {
 	var user *user_model.User
 	var err error
@@ -452,7 +590,7 @@ func HasAnyUnitAccess(ctx context.Context, userID int64, repo *repo_model.Reposi
 			return false, err
 		}
 	}
-	perm, err := GetUserRepoPermission(ctx, repo, user)
+	perm, err := GetIndividualUserRepoPermission(ctx, repo, user)
 	if err != nil {
 		return false, err
 	}
@@ -500,13 +638,14 @@ func GetUserIDsWithUnitAccess(ctx context.Context, repo *repo_model.Repository, 
 }
 
 // CheckRepoUnitUser check whether user could visit the unit of this repository
+// This helper only supports explicit user identities and does not resolve Actions task users.
 func CheckRepoUnitUser(ctx context.Context, repo *repo_model.Repository, user *user_model.User, unitType unit.Type) bool {
 	if user != nil && user.IsAdmin {
 		return true
 	}
-	perm, err := GetUserRepoPermission(ctx, repo, user)
+	perm, err := GetIndividualUserRepoPermission(ctx, repo, user)
 	if err != nil {
-		log.Error("GetUserRepoPermission: %w", err)
+		log.Error("GetIndividualUserRepoPermission: %w", err)
 		return false
 	}
 

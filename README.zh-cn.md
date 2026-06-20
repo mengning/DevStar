@@ -1,6 +1,8 @@
 # DevStar
 
-AI 赋能研发的“最后一公里”。让一切皆可编程。
+DevStar AI 2.0 Agent Teams: Empowering innovators to make the world better.
+
+The Last Mile of Al for R&D. Make it possible to code everything.
 
 DevStar 提供真正 AI 原生的全栈研发生态，专为 AI 与人类开发者组成的混合团队设计，是面向 AI 时代打造的新一代智能平台。
 
@@ -14,7 +16,7 @@ DevStar 是 Gitea 的商业发行版。由于 [Gitea](https://github.com/go-gite
 | 功能类型 | 能力 | 许可证 | 定价模式 |
 | :--- | :--- | :--- | :--- |
 | **核心功能** | ✅ Git 仓库托管<br>✅ 议题与拉取请求<br>✅ Wiki 与项目看板<br>✅ 内置 CI/CD（兼容 GitHub Actions）<br>✅ 细粒度权限控制<br>✅ 用户与组织管理<br>✅ 多包注册表<br>✅ REST API<br>✅ 多数据库支持 / 轻量级部署 | MIT 许可证 | 免费开源 |
-| **增强功能** | ✅ 内置 DevContainer 环境<br>✅ 内置 MCP 服务器<br>✅ 内置 AI 助手<br>✅ 集成 AI CLI 工具（Claude Code/OpenCode 等）<br>✅ 集成 AI IDE（Copilot/Cursor/Trae 等）<br>✅ 一键部署 Actions Runner<br>✅ 在线调试 CI/CD 脚本<br>✅ 项目模板生态（最佳实践模板） | 商业许可证 | **个人使用：** 永久免费（非商业用途）<br>**企业使用：** 年度许可<br>✅ 标准版：CNY 1,888/用户/年（人类或 AI 用户）<br>✅ 自主申报折扣：CNY 188/用户/年（9折优惠）<br>✅ 首年试用：CNY 1.88/用户 |
+| **增强功能** | ✅ 研发全流程智能原生支持，如AI Issues、AI Actions、AI Coding、AI Code Review、AI Testing等<br>✅ 内置Agent 编排解决方案（Agent Team）<br>✅ 一键部署主流LLM大模型<br>✅ 内置 MCP 服务器<br>✅ 内置 AI 助手Chatbot<br>✅ 自定义集成 AI CLI 工具Claude Code、Codex、OpenCode 等<br>✅ 自定义集成 AI IDE如VS Code、Cursor、Trae 等<br>✅ 一键部署 Actions Runner （Github Actions兼容）及在线调试 CI脚本<br>✅ 内置 DevContainer 环境<br>✅ 项目模板生态（最佳实践模板） | 商业许可证 | **个人使用：** 永久免费（非商业用途）<br>**企业使用：** 年度许可<br>✅ 标准版：CNY 1,888/用户/年（人类或 AI 用户）<br>✅ 自主申报折扣：CNY 188/用户/年（1折优惠）<br>✅ 首年试用：CNY 1.88/用户 |
 
 ## 快速开始
 
@@ -25,7 +27,7 @@ devstar start # 运行命令部署 DevStar Studio
 
 如需在线演示，请访问 [DevStar.cn](https://DevStar.cn)。
 
-你可以在我们的官方 [文档网站](https://mengning.com.cn) 找到完整文档。
+你可以在我们的官方 [文档网站](https://github.com/mengning/DevStar/wiki) 找到完整文档。
 
 ## 构建
 
@@ -40,7 +42,7 @@ devstar start # 运行命令部署 DevStar Studio
 `build` 目标分为两个子目标：
 
 - `make backend` 需要 [Go Stable](https://go.dev/dl/)，所需版本在 [go.mod](/go.mod) 中定义。
-- `make frontend` 需要 [Node.js LTS](https://nodejs.org/en/download/) 或更高版本。
+- `make frontend` 需要 [Node.js LTS](https://nodejs.org/en/download/) 或更高版本以及 [pnpm](https://pnpm.io/installation)。
 
 需要互联网连接来下载 go 和 npm 模块。从包含预构建前端文件的官方源代码压缩包构建时，不会触发 `frontend` 目标，因此可以在没有 Node.js 的情况下构建。
 
@@ -129,8 +131,7 @@ Gitea 的发音是 [/ɡɪ’ti:/](https://youtu.be/EM71-2uDAoY)，就像 "gi-tea
 
 ## 许可证
 
-这个项目是根据 MIT 许可证授权的。
-请参阅 [LICENSE](https://github.com/go-gitea/gitea/blob/main/LICENSE) 文件以获取完整的许可证文本。
+这个项目是根据 MIT 许可证授权的。项目名称DevStar与已注册相关商标及官方域名devstar.cn共同构成品牌标识，未经许可，衍生产品不得使用相同或近似名称，以免造成公众混淆。翻译成英语
 
 ## 进一步信息
 

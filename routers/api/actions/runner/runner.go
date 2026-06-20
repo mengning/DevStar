@@ -156,10 +156,16 @@ func (s *Service) FetchTask(
 	}
 
 	if tasksVersion != latestVersion {
+		// Re-load runner from DB so task assignment uses current IsDisabled state
+		// (avoids race where disable commits while this request still has stale runner).
+		freshRunner, err := actions_model.GetRunnerByUUID(ctx, runner.UUID)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "get runner: %v", err)
+		}
 		// if the task version in request is not equal to the version in db,
 		// it means there may still be some tasks that haven't been assigned.
 		// try to pick a task for the runner that send the request.
-		if t, ok, err := actions_service.PickTask(ctx, runner); err != nil {
+		if t, ok, err := actions_service.PickTask(ctx, freshRunner); err != nil {
 			log.Error("pick task failed: %v", err)
 			return nil, status.Errorf(codes.Internal, "pick task: %v", err)
 		} else if ok {
@@ -217,18 +223,18 @@ func (s *Service) UpdateTask(
 		return nil, status.Errorf(codes.Internal, "load run: %v", err)
 	}
 
-	// don't create commit status for cron job
-	if task.Job.Run.ScheduleID == 0 {
-		actions_service.CreateCommitStatus(ctx, task.Job)
-	}
+	actions_service.CreateCommitStatusForRunJobs(ctx, task.Job.Run, task.Job)
 
 	if task.Status.IsDone() {
 		notify_service.WorkflowJobStatusUpdate(ctx, task.Job.Run.Repo, task.Job.Run.TriggerUser, task.Job, task)
 	}
 
 	if req.Msg.State.Result != runnerv1.Result_RESULT_UNSPECIFIED {
-		if err := actions_service.EmitJobsIfReady(task.Job.RunID); err != nil {
+		if err := actions_service.EmitJobsIfReadyByRun(task.Job.RunID); err != nil {
 			log.Error("Emit ready jobs of run %d: %v", task.Job.RunID, err)
+		}
+		if task.Job.Run.Status.IsDone() {
+			actions_service.NotifyWorkflowRunStatusUpdateWithReload(ctx, task.Job)
 		}
 	}
 
@@ -258,7 +264,16 @@ func (s *Service) UpdateLog(
 	}
 	ack := task.LogLength
 
-	if len(req.Msg.Rows) == 0 || req.Msg.Index > ack || int64(len(req.Msg.Rows))+req.Msg.Index <= ack {
+	// Trim rows the runner already had acked.
+	var rows []*runnerv1.LogRow
+	if req.Msg.Index <= ack && int64(len(req.Msg.Rows))+req.Msg.Index > ack {
+		rows = req.Msg.Rows[ack-req.Msg.Index:]
+	}
+
+	// Bail unless we have new rows or a NoMore to finalize. Even with
+	// NoMore, bail when the runner has outrun the server — archiving a
+	// log with a gap is worse than asking it to retry.
+	if len(rows) == 0 && (!req.Msg.NoMore || req.Msg.Index > ack) {
 		res.Msg.AckIndex = ack
 		return res, nil
 	}
@@ -267,10 +282,12 @@ func (s *Service) UpdateLog(
 		return nil, status.Errorf(codes.AlreadyExists, "log file has been archived")
 	}
 
-	rows := req.Msg.Rows[ack-req.Msg.Index:]
+	// WriteLogs is called even with no rows: with offset==0 it bootstraps
+	// an empty DBFS file so TransferLogs below has something to read when
+	// the runner finalizes a task that produced no log output.
 	ns, err := actions.WriteLogs(ctx, task.LogFilename, task.LogSize, rows)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "write logs: %v", err)
+		return nil, status.Errorf(codes.Internal, "unable to append logs to dbfs file: %v", err)
 	}
 	task.LogLength += int64(len(rows))
 	for _, n := range ns {

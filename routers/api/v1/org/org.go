@@ -5,6 +5,7 @@
 package org
 
 import (
+	"errors"
 	"net/http"
 
 	activities_model "code.gitea.io/gitea/models/activities"
@@ -14,6 +15,7 @@ import (
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/optional"
 	api "code.gitea.io/gitea/modules/structs"
+	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/routers/api/v1/user"
 	"code.gitea.io/gitea/routers/api/v1/utils"
@@ -31,6 +33,7 @@ func listUserOrgs(ctx *context.APIContext, u *user_model.User) {
 		UserID:            u.ID,
 		IncludeVisibility: organization.DoerViewOtherVisibility(ctx.Doer, u),
 	}
+	opts.ApplyPublicOnly(ctx.PublicOnly)
 	orgs, maxResults, err := db.FindAndCount[organization.Organization](ctx, opts)
 	if err != nil {
 		ctx.APIErrorInternal(err)
@@ -42,7 +45,7 @@ func listUserOrgs(ctx *context.APIContext, u *user_model.User) {
 		apiOrgs[i] = convert.ToOrganization(ctx, orgs[i])
 	}
 
-	ctx.SetLinkHeader(int(maxResults), listOptions.PageSize)
+	ctx.SetLinkHeader(maxResults, listOptions.PageSize)
 	ctx.SetTotalCountHeader(maxResults)
 	ctx.JSON(http.StatusOK, &apiOrgs)
 }
@@ -135,7 +138,7 @@ func GetUserOrgsPermissions(ctx *context.APIContext) {
 
 	op := api.OrganizationPermissions{}
 
-	if !organization.HasOrgOrUserVisible(ctx, o, ctx.ContextUser) {
+	if !organization.HasOrgOrUserVisible(ctx, o, ctx.Doer) {
 		ctx.APIErrorNotFound("HasOrgOrUserVisible", nil)
 		return
 	}
@@ -190,7 +193,7 @@ func GetAll(ctx *context.APIContext) {
 	//     "$ref": "#/responses/OrganizationList"
 
 	vMode := []api.VisibleType{api.VisibleTypePublic}
-	if ctx.IsSigned && !ctx.PublicOnly {
+	if ctx.IsSigned {
 		vMode = append(vMode, api.VisibleTypeLimited)
 		if ctx.Doer.IsAdmin {
 			vMode = append(vMode, api.VisibleTypePrivate)
@@ -199,13 +202,16 @@ func GetAll(ctx *context.APIContext) {
 
 	listOptions := utils.GetListOptions(ctx)
 
-	publicOrgs, maxResults, err := user_model.SearchUsers(ctx, user_model.SearchUserOptions{
+	searchOpts := user_model.SearchUserOptions{
 		Actor:       ctx.Doer,
 		ListOptions: listOptions,
-		Type:        user_model.UserTypeOrganization,
+		Types:       []user_model.UserType{user_model.UserTypeOrganization},
 		OrderBy:     db.SearchOrderByAlphabetically,
 		Visible:     vMode,
-	})
+	}
+	searchOpts.ApplyPublicOnly(ctx.PublicOnly)
+
+	publicOrgs, maxResults, err := user_model.SearchUsers(ctx, searchOpts)
 	if err != nil {
 		ctx.APIErrorInternal(err)
 		return
@@ -215,7 +221,7 @@ func GetAll(ctx *context.APIContext) {
 		orgs[i] = convert.ToOrganization(ctx, organization.OrgFromUser(publicOrgs[i]))
 	}
 
-	ctx.SetLinkHeader(int(maxResults), listOptions.PageSize)
+	ctx.SetLinkHeader(maxResults, listOptions.PageSize)
 	ctx.SetTotalCountHeader(maxResults)
 	ctx.JSON(http.StatusOK, &orgs)
 }
@@ -340,7 +346,7 @@ func Rename(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*api.RenameOrgOption)
 	orgUser := ctx.Org.Organization.AsUser()
-	if err := user_service.RenameUser(ctx, orgUser, form.NewName); err != nil {
+	if err := user_service.RenameUser(ctx, orgUser, form.NewName, ctx.Doer); err != nil {
 		if user_model.IsErrUserAlreadyExist(err) || db.IsErrNameReserved(err) || db.IsErrNamePatternNotAllowed(err) || db.IsErrNameCharsNotAllowed(err) {
 			ctx.APIError(http.StatusUnprocessableEntity, err)
 		} else {
@@ -379,19 +385,21 @@ func Edit(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*api.EditOrgOption)
 
-	if form.Email != "" {
-		if err := user_service.ReplacePrimaryEmailAddress(ctx, ctx.Org.Organization.AsUser(), form.Email); err != nil {
-			ctx.APIErrorInternal(err)
+	if err := org.UpdateOrgEmailAddress(ctx, ctx.Org.Organization, form.Email); err != nil {
+		if errors.Is(err, util.ErrInvalidArgument) {
+			ctx.APIError(http.StatusUnprocessableEntity, err)
 			return
 		}
+		ctx.APIErrorInternal(err)
+		return
 	}
 
 	opts := &user_service.UpdateOptions{
-		FullName:                  optional.Some(form.FullName),
-		Description:               optional.Some(form.Description),
-		Website:                   optional.Some(form.Website),
-		Location:                  optional.Some(form.Location),
-		Visibility:                optional.FromMapLookup(api.VisibilityModes, form.Visibility),
+		FullName:                  optional.FromPtr(form.FullName),
+		Description:               optional.FromPtr(form.Description),
+		Website:                   optional.FromPtr(form.Website),
+		Location:                  optional.FromPtr(form.Location),
+		Visibility:                optional.FromMapLookup(api.VisibilityModes, optional.FromPtr(form.Visibility).Value()),
 		RepoAdminChangeTeamAccess: optional.FromPtr(form.RepoAdminChangeTeamAccess),
 	}
 	if err := user_service.UpdateUser(ctx, ctx.Org.Organization.AsUser(), opts); err != nil {
@@ -483,6 +491,7 @@ func ListOrgActivityFeeds(ctx *context.APIContext) {
 		Date:           ctx.FormString("date"),
 		ListOptions:    listOptions,
 	}
+	opts.ApplyPublicOnly(ctx.PublicOnly)
 
 	feeds, count, err := feed_service.GetFeeds(ctx, opts)
 	if err != nil {

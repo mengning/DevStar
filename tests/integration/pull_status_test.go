@@ -34,7 +34,6 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 		url := path.Join("user1", "repo1", "compare", "master...status1")
 		req := NewRequestWithValues(t, "POST", url,
 			map[string]string{
-				"_csrf": GetUserCSRFToken(t, session),
 				"title": "pull request from status1",
 			},
 		)
@@ -60,8 +59,8 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 			commitstatus.CommitStatusPending,
 			commitstatus.CommitStatusError,
 			commitstatus.CommitStatusFailure,
-			commitstatus.CommitStatusSuccess,
 			commitstatus.CommitStatusWarning,
+			commitstatus.CommitStatusSuccess,
 		}
 
 		statesIcons := map[commitstatus.CommitStatusState]string{
@@ -77,12 +76,7 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 		// Update commit status, and check if icon is updated as well
 		for _, status := range statusList {
 			// Call API to add status for commit
-			t.Run("CreateStatus", doAPICreateCommitStatus(testCtx, commitID, api.CreateStatusOption{
-				State:       status,
-				TargetURL:   "http://test.ci/",
-				Description: "",
-				Context:     "testci",
-			}))
+			t.Run("CreateStatus", doAPICreateCommitStatusTest(testCtx, commitID, status, "testci"))
 
 			req = NewRequest(t, "GET", "/user1/repo1/pulls/1/commits")
 			resp = session.MakeRequest(t, req, http.StatusOK)
@@ -104,19 +98,15 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 	})
 }
 
-func doAPICreateCommitStatus(ctx APITestContext, commitID string, data api.CreateStatusOption) func(*testing.T) {
+func doAPICreateCommitStatusTest(ctx APITestContext, ref string, state commitstatus.CommitStatusState, statusContext string) func(*testing.T) {
 	return func(t *testing.T) {
-		req := NewRequestWithJSON(
-			t,
-			http.MethodPost,
-			fmt.Sprintf("/api/v1/repos/%s/%s/statuses/%s", ctx.Username, ctx.Reponame, commitID),
-			data,
-		).AddTokenAuth(ctx.Token)
-		if ctx.ExpectedCode != 0 {
-			ctx.Session.MakeRequest(t, req, ctx.ExpectedCode)
-			return
-		}
-		ctx.Session.MakeRequest(t, req, http.StatusCreated)
+		link := fmt.Sprintf("/api/v1/repos/%s/%s/statuses/%s", ctx.Username, ctx.Reponame, url.PathEscape(ref))
+		req := NewRequestWithJSON(t, http.MethodPost, link, api.CreateStatusOption{
+			State:     state,
+			TargetURL: "http://test.ci/",
+			Context:   statusContext,
+		}).AddTokenAuth(ctx.Token)
+		ctx.Session.MakeRequest(t, req, ctx.ExpectedCode)
 	}
 }
 
@@ -134,7 +124,6 @@ func TestPullCreate_EmptyChangesWithDifferentCommits(t *testing.T) {
 		url := path.Join("user1", "repo1", "compare", "master...status1")
 		req := NewRequestWithValues(t, "POST", url,
 			map[string]string{
-				"_csrf": GetUserCSRFToken(t, session),
 				"title": "pull request from status1",
 			},
 		)
@@ -152,22 +141,29 @@ func TestPullCreate_EmptyChangesWithDifferentCommits(t *testing.T) {
 func TestPullCreate_EmptyChangesWithSameCommits(t *testing.T) {
 	onGiteaRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
-		testRepoFork(t, session, "user2", "repo1", "user1", "repo1", "")
-		testCreateBranch(t, session, "user1", "repo1", "branch/master", "status1", http.StatusSeeOther)
-		url := path.Join("user1", "repo1", "compare", "master...status1")
-		req := NewRequestWithValues(t, "POST", url,
-			map[string]string{
-				"_csrf": GetUserCSRFToken(t, session),
-				"title": "pull request from status1",
-			},
-		)
-		session.MakeRequest(t, req, http.StatusOK)
-		req = NewRequest(t, "GET", "/user1/repo1/pulls/1")
-		resp := session.MakeRequest(t, req, http.StatusOK)
-		doc := NewHTMLParser(t, resp.Body)
 
+		testCreateBranch(t, session, "user2", "repo1", "branch/master", "empty-pr-branch", http.StatusSeeOther)
+		resp := testPullCreateDirectly(t, session, createPullRequestOptions{
+			BaseRepoOwner: "user2",
+			BaseRepoName:  "repo1",
+			BaseBranch:    "master",
+			HeadBranch:    "empty-pr-branch",
+			Title:         "empty pr test",
+		})
+		prURL := test.RedirectURL(resp)
+
+		// check the "merge box" text
+		req := NewRequest(t, "GET", prURL)
+		resp = session.MakeRequest(t, req, http.StatusOK)
+		doc := NewHTMLParser(t, resp.Body)
 		text := strings.TrimSpace(doc.doc.Find(".merge-section").Text())
 		assert.Contains(t, text, "This branch is already included in the target branch. There is nothing to merge.")
+
+		// check the "files" tab content
+		req = NewRequest(t, "GET", prURL+"/files")
+		resp = session.MakeRequest(t, req, http.StatusOK)
+		doc = NewHTMLParser(t, resp.Body)
+		assert.Equal(t, "Diff Content Not Available", strings.TrimSpace(doc.Find("#diff-container").Text()))
 	})
 }
 

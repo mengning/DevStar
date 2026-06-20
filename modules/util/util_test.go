@@ -11,39 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestURLJoin(t *testing.T) {
-	type test struct {
-		Expected string
-		Base     string
-		Elements []string
-	}
-	newTest := func(expected, base string, elements ...string) test {
-		return test{Expected: expected, Base: base, Elements: elements}
-	}
-	for _, test := range []test{
-		newTest("https://try.gitea.io/a/b/c",
-			"https://try.gitea.io", "a/b", "c"),
-		newTest("https://try.gitea.io/a/b/c",
-			"https://try.gitea.io/", "/a/b/", "/c/"),
-		newTest("https://try.gitea.io/a/c",
-			"https://try.gitea.io/", "/a/./b/", "../c/"),
-		newTest("a/b/c",
-			"a", "b/c/"),
-		newTest("a/b/d",
-			"a/", "b/c/", "/../d/"),
-		newTest("https://try.gitea.io/a/b/c#d",
-			"https://try.gitea.io", "a/b", "c#d"),
-		newTest("/a/b/d",
-			"/a/", "b/c/", "/../d/"),
-		newTest("/a/b/c",
-			"/a", "b/c/"),
-		newTest("/a/b/c#hash",
-			"/a", "b/c#hash"),
-	} {
-		assert.Equal(t, test.Expected, URLJoin(test.Base, test.Elements...))
-	}
-}
-
 func TestIsEmptyString(t *testing.T) {
 	cases := []struct {
 		s        string
@@ -178,30 +145,26 @@ type StringTest struct {
 	in, out string
 }
 
-var upperTests = []StringTest{
+var lowerTests = []StringTest{
 	{"", ""},
-	{"ONLYUPPER", "ONLYUPPER"},
-	{"abc", "ABC"},
-	{"AbC123", "ABC123"},
-	{"azAZ09_", "AZAZ09_"},
-	{"longStrinGwitHmixofsmaLLandcAps", "LONGSTRINGWITHMIXOFSMALLANDCAPS"},
-	{"long\u0250string\u0250with\u0250nonascii\u2C6Fchars", "LONG\u0250STRING\u0250WITH\u0250NONASCII\u2C6FCHARS"},
-	{"\u0250\u0250\u0250\u0250\u0250", "\u0250\u0250\u0250\u0250\u0250"},
-	{"a\u0080\U0010FFFF", "A\u0080\U0010FFFF"},
-	{"lél", "LéL"},
+	{"ABC", "abc"},
+	{"AbC123_", "abc123_"},
+	{"LONG\u0250string\u0250WITH\u0250non-ascii\u2C6FCHARS\u0080\uFFFF", "long\u0250string\u0250with\u0250non-ascii\u2C6Fchars\u0080\uFFFF"},
+	{"lél", "lél"},
+	{"LÉL", "lÉl"},
 }
 
-func TestToUpperASCII(t *testing.T) {
-	for _, tc := range upperTests {
-		assert.Equal(t, ToUpperASCII(tc.in), tc.out)
+func TestToLowerASCII(t *testing.T) {
+	for _, tc := range lowerTests {
+		assert.Equal(t, ToLowerASCII(tc.in), tc.out)
 	}
 }
 
-func BenchmarkToUpper(b *testing.B) {
-	for _, tc := range upperTests {
+func BenchmarkToLower(b *testing.B) {
+	for _, tc := range lowerTests {
 		b.Run(tc.in, func(b *testing.B) {
 			for b.Loop() {
-				ToUpperASCII(tc.in)
+				ToLowerASCII(tc.in)
 			}
 		})
 	}
@@ -212,18 +175,9 @@ func TestToTitleCase(t *testing.T) {
 	assert.Equal(t, `Foo Bar Baz`, ToTitleCase(`FOO BAR BAZ`))
 }
 
-func TestToPointer(t *testing.T) {
-	assert.Equal(t, "abc", *ToPointer("abc"))
-	assert.Equal(t, 123, *ToPointer(123))
-	abc := "abc"
-	assert.NotSame(t, &abc, ToPointer(abc))
-	val123 := 123
-	assert.NotSame(t, &val123, ToPointer(val123))
-}
-
-func TestReserveLineBreakForTextarea(t *testing.T) {
-	assert.Equal(t, "test\ndata", ReserveLineBreakForTextarea("test\r\ndata"))
-	assert.Equal(t, "test\ndata\n", ReserveLineBreakForTextarea("test\r\ndata\r\n"))
+func TestNormalizeStringEOL(t *testing.T) {
+	assert.Equal(t, "test\ndata", NormalizeStringEOL("test\r\ndata"))
+	assert.Equal(t, " test\ndata\n ", NormalizeStringEOL(" test\rdata\r "))
 }
 
 func TestOptionalArg(t *testing.T) {
@@ -237,4 +191,11 @@ func TestOptionalArg(t *testing.T) {
 	assert.Equal(t, 100, foo(nil, 100))
 	assert.Equal(t, 42, bar(nil))
 	assert.Equal(t, 100, bar(nil, 100))
+}
+
+func TestPathEscapeSegments(t *testing.T) {
+	assert.Equal(t, "a", PathEscapeSegments("a"))
+	assert.Equal(t, "a/b", PathEscapeSegments("a/b"))
+	assert.Equal(t, "a/b%20c", PathEscapeSegments("a/b c"))
+	assert.Equal(t, "a/b+c", PathEscapeSegments("a/b+c"))
 }

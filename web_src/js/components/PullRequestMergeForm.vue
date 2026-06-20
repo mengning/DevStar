@@ -3,9 +3,9 @@ import {computed, onMounted, onUnmounted, shallowRef, watch} from 'vue';
 import {SvgIcon} from '../svg.ts';
 import {toggleElem} from '../utils/dom.ts';
 
-const {csrfToken, pageData} = window.config;
+const {pageData} = window.config;
 
-const mergeForm = pageData.pullRequestMergeForm;
+const mergeForm = pageData.pullRequestMergeForm!;
 
 const mergeTitleFieldValue = shallowRef('');
 const mergeMessageFieldValue = shallowRef('');
@@ -95,7 +95,6 @@ function clearMergeMessage() {
 
     <!-- another similar form is in pull.tmpl (manual merge)-->
     <form class="ui form form-fetch-action" v-if="showActionForm" :action="mergeForm.baseLink+'/merge'" method="post">
-      <input type="hidden" name="_csrf" :value="csrfToken">
       <input type="hidden" name="head_commit_id" v-model="mergeForm.pullHeadCommitID">
       <input type="hidden" name="merge_when_checks_succeed" v-model="autoMergeWhenSucceed">
       <input type="hidden" name="force_merge" v-model="forceMerge">
@@ -177,7 +176,6 @@ function clearMergeMessage() {
 
       <!-- the cancel auto merge button -->
       <form v-if="mergeForm.hasPendingPullRequestMerge" :action="mergeForm.baseLink+'/cancel_auto_merge'" method="post" class="tw-ml-4">
-        <input type="hidden" name="_csrf" :value="csrfToken">
         <button class="ui button">
           {{ mergeForm.textAutoMergeCancelSchedule }}
         </button>
@@ -232,7 +230,7 @@ function clearMergeMessage() {
   bottom: -1px;
   position: absolute;
   align-items: center;
-  color: var(--color-info-text);
+  color: var(--color-text);
   background-color: var(--color-info-bg);
   border: 1px solid var(--color-info-border);
   border-left: none;
@@ -240,7 +238,7 @@ function clearMergeMessage() {
 }
 
 .auto-merge-small:hover {
-  color: var(--color-info-text);
+  color: var(--color-text);
   background-color: var(--color-info-bg);
   border: 1px solid var(--color-info-border);
 }

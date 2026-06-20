@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"net/url"
 	"sort"
 	"strconv"
 
@@ -26,7 +25,6 @@ import (
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/emoji"
 	"code.gitea.io/gitea/modules/git"
-	"code.gitea.io/gitea/modules/gitrepo"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/markup"
 	"code.gitea.io/gitea/modules/markup/markdown"
@@ -34,6 +32,7 @@ import (
 	"code.gitea.io/gitea/modules/templates"
 	"code.gitea.io/gitea/modules/templates/vars"
 	"code.gitea.io/gitea/modules/util"
+	"code.gitea.io/gitea/modules/web/middleware"
 	asymkey_service "code.gitea.io/gitea/services/asymkey"
 	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/context/upload"
@@ -58,7 +57,7 @@ func roleDescriptor(ctx *context.Context, repo *repo_model.Repository, poster *u
 	// Guess the role of the poster in the repo by permission
 	perm, hasPermCache := permsCache[poster.ID]
 	if !hasPermCache {
-		perm, err = access_model.GetUserRepoPermission(ctx, repo, poster)
+		perm, err = access_model.GetIndividualUserRepoPermission(ctx, repo, poster)
 		if err != nil {
 			return roleDesc, err
 		}
@@ -146,9 +145,9 @@ func checkBlockedByIssues(ctx *context.Context, blockers []*issues_model.Depende
 			perm = existPerm
 		} else {
 			var err error
-			perm, err = access_model.GetUserRepoPermission(ctx, &blocker.Repository, ctx.Doer)
+			perm, err = access_model.GetDoerRepoPermission(ctx, &blocker.Repository, ctx.Doer)
 			if err != nil {
-				ctx.ServerError("GetUserRepoPermission", err)
+				ctx.ServerError("GetDoerRepoPermission", err)
 				return nil, nil
 			}
 			repoPerms[blocker.RepoID] = perm
@@ -193,7 +192,7 @@ func filterXRefComments(ctx *context.Context, issue *issues_model.Issue) error {
 			if err != nil {
 				return err
 			}
-			perm, err := access_model.GetUserRepoPermission(ctx, c.RefRepo, ctx.Doer)
+			perm, err := access_model.GetDoerRepoPermission(ctx, c.RefRepo, ctx.Doer)
 			if err != nil {
 				return err
 			}
@@ -409,7 +408,7 @@ func ViewIssue(ctx *context.Context) {
 	}
 
 	ctx.Data["Reference"] = issue.Ref
-	ctx.Data["SignInLink"] = setting.AppSubURL + "/user/login?redirect_to=" + url.QueryEscape(ctx.Data["Link"].(string))
+	ctx.Data["SignInLink"] = middleware.RedirectLinkUserLogin(ctx.Req)
 	ctx.Data["IsIssuePoster"] = ctx.IsSigned && issue.IsPoster(ctx.Doer.ID)
 	ctx.Data["HasIssuesOrPullsWritePermission"] = ctx.Repo.CanWriteIssuesOrPulls(issue.IsPull)
 	ctx.Data["HasProjectsWritePermission"] = ctx.Repo.CanWrite(unit.TypeProjects)
@@ -437,6 +436,9 @@ func ViewIssue(ctx *context.Context) {
 
 func ViewPullMergeBox(ctx *context.Context) {
 	issue := prepareIssueViewLoad(ctx)
+	if ctx.Written() {
+		return
+	}
 	if !issue.IsPull {
 		ctx.NotFound(nil)
 		return
@@ -467,7 +469,7 @@ func prepareIssueViewSidebarDependency(ctx *context.Context, issue *issues_model
 	ctx.Data["AllowCrossRepositoryDependencies"] = setting.Service.AllowCrossRepositoryDependencies
 
 	// Get Dependencies
-	blockedBy, err := issue.BlockedByDependencies(ctx, db.ListOptions{})
+	blockedBy, _, err := issue.BlockedByDependencies(ctx, db.ListOptions{})
 	if err != nil {
 		ctx.ServerError("BlockedByDependencies", err)
 		return
@@ -493,7 +495,7 @@ func preparePullViewSigning(ctx *context.Context, issue *issues_model.Issue) {
 	pull := issue.PullRequest
 	ctx.Data["WillSign"] = false
 	if ctx.Doer != nil {
-		sign, key, _, err := asymkey_service.SignMerge(ctx, pull, ctx.Doer, pull.BaseRepo.RepoPath(), pull.BaseBranch, pull.GetGitHeadRefName())
+		sign, key, _, err := asymkey_service.SignMerge(ctx, pull, ctx.Doer, ctx.Repo.GitRepo)
 		ctx.Data["WillSign"] = sign
 		ctx.Data["SigningKeyMergeDisplay"] = asymkey_model.GetDisplaySigningKey(key)
 		if err != nil {
@@ -563,8 +565,10 @@ func preparePullViewDeleteBranch(ctx *context.Context, issue *issues_model.Issue
 	pull := issue.PullRequest
 	isPullBranchDeletable := canDelete &&
 		pull.HeadRepo != nil &&
-		gitrepo.IsBranchExist(ctx, pull.HeadRepo, pull.HeadBranch) &&
 		(!pull.HasMerged || ctx.Data["HeadBranchCommitID"] == ctx.Data["PullHeadCommitID"])
+	if isPullBranchDeletable {
+		isPullBranchDeletable, _ = git_model.IsBranchExist(ctx, pull.HeadRepo.ID, pull.HeadBranch)
+	}
 
 	if isPullBranchDeletable && pull.HasMerged {
 		exist, err := issues_model.HasUnmergedPullRequestsByHeadInfo(ctx, pull.HeadRepoID, pull.HeadBranch)
@@ -841,9 +845,9 @@ func preparePullViewReviewAndMerge(ctx *context.Context, issue *issues_model.Iss
 		if err := pull.LoadHeadRepo(ctx); err != nil {
 			log.Error("LoadHeadRepo: %v", err)
 		} else if pull.HeadRepo != nil {
-			perm, err := access_model.GetUserRepoPermission(ctx, pull.HeadRepo, ctx.Doer)
+			perm, err := access_model.GetDoerRepoPermission(ctx, pull.HeadRepo, ctx.Doer)
 			if err != nil {
-				ctx.ServerError("GetUserRepoPermission", err)
+				ctx.ServerError("GetDoerRepoPermission", err)
 				return
 			}
 			if perm.CanWrite(unit.TypeCode) {
@@ -863,9 +867,9 @@ func preparePullViewReviewAndMerge(ctx *context.Context, issue *issues_model.Iss
 		if err := pull.LoadBaseRepo(ctx); err != nil {
 			log.Error("LoadBaseRepo: %v", err)
 		}
-		perm, err := access_model.GetUserRepoPermission(ctx, pull.BaseRepo, ctx.Doer)
+		perm, err := access_model.GetDoerRepoPermission(ctx, pull.BaseRepo, ctx.Doer)
 		if err != nil {
-			ctx.ServerError("GetUserRepoPermission", err)
+			ctx.ServerError("GetDoerRepoPermission", err)
 			return
 		}
 		if !canWriteToHeadRepo { // maintainers maybe allowed to push to head repo even if they can't write to it
@@ -901,9 +905,8 @@ func preparePullViewReviewAndMerge(ctx *context.Context, issue *issues_model.Iss
 	// Check correct values and select default
 	if ms, ok := ctx.Data["MergeStyle"].(repo_model.MergeStyle); !ok ||
 		!prConfig.IsMergeStyleAllowed(ms) {
-		defaultMergeStyle := prConfig.GetDefaultMergeStyle()
-		if prConfig.IsMergeStyleAllowed(defaultMergeStyle) && !ok {
-			mergeStyle = defaultMergeStyle
+		if prConfig.IsMergeStyleAllowed(prConfig.DefaultMergeStyle) && !ok {
+			mergeStyle = prConfig.DefaultMergeStyle
 		} else if prConfig.AllowMerge {
 			mergeStyle = repo_model.MergeStyleMerge
 		} else if prConfig.AllowRebase {

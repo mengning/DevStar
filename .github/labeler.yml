@@ -43,15 +43,13 @@ modifies/internal:
           - ".editorconfig"
           - ".eslintrc.cjs"
           - ".golangci.yml"
-          - ".gitpod.yml"
           - ".markdownlint.yaml"
           - ".spectral.yaml"
-          - "stylelint.config.js"
+          - "stylelint.config.*"
           - ".yamllint.yaml"
           - ".github/**"
           - ".gitea/**"
           - ".devcontainer/**"
-          - "build.go"
           - "build/**"
           - "contrib/**"
 
@@ -85,9 +83,9 @@ docs-update-needed:
 topic/code-linting:
   - changed-files:
       - any-glob-to-any-file:
-          - ".eslintrc.cjs"
           - ".golangci.yml"
           - ".markdownlint.yaml"
           - ".spectral.yaml"
           - ".yamllint.yaml"
-          - "stylelint.config.js"
+          - "eslint*.config.*"
+          - "stylelint.config.*"

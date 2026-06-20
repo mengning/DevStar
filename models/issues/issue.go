@@ -190,17 +190,10 @@ func (issue *Issue) IsTimetrackerEnabled(ctx context.Context) bool {
 
 // LoadPoster loads poster
 func (issue *Issue) LoadPoster(ctx context.Context) (err error) {
-	if issue.Poster == nil && issue.PosterID != 0 {
-		issue.Poster, err = user_model.GetPossibleUserByID(ctx, issue.PosterID)
-		if err != nil {
-			issue.PosterID = user_model.GhostUserID
-			issue.Poster = user_model.NewGhostUser()
-			if !user_model.IsErrUserNotExist(err) {
-				return fmt.Errorf("getUserByID.(poster) [%d]: %w", issue.PosterID, err)
-			}
-			return nil
-		}
+	if issue.Poster != nil {
+		return nil
 	}
+	issue.PosterID, issue.Poster, err = user_model.GetPossibleUserByID(ctx, issue.PosterID)
 	return err
 }
 
@@ -498,7 +491,7 @@ func (issue *Issue) GetLastComment(ctx context.Context) (*Comment, error) {
 		return nil, err
 	}
 	if !exist {
-		return nil, nil
+		return nil, nil //nolint:nilnil // return nil to indicate that the object does not exist
 	}
 	return &c, nil
 }
@@ -682,7 +675,7 @@ func (issue *Issue) GetParticipantIDsByIssue(ctx context.Context) ([]int64, erro
 }
 
 // BlockedByDependencies finds all Dependencies an issue is blocked by
-func (issue *Issue) BlockedByDependencies(ctx context.Context, opts db.ListOptions) (issueDeps []*DependencyInfo, err error) {
+func (issue *Issue) BlockedByDependencies(ctx context.Context, opts db.ListOptions) (issueDeps []*DependencyInfo, total int64, err error) {
 	sess := db.GetEngine(ctx).
 		Table("issue").
 		Join("INNER", "repository", "repository.id = issue.repo_id").
@@ -693,13 +686,13 @@ func (issue *Issue) BlockedByDependencies(ctx context.Context, opts db.ListOptio
 	if opts.Page > 0 {
 		sess = db.SetSessionPagination(sess, &opts)
 	}
-	err = sess.Find(&issueDeps)
+	total, err = sess.FindAndCount(&issueDeps)
 
 	for _, depInfo := range issueDeps {
 		depInfo.Issue.Repo = &depInfo.Repository
 	}
 
-	return issueDeps, err
+	return issueDeps, total, err
 }
 
 // BlockingDependencies returns all blocking dependencies, aka all other issues a given issue blocks

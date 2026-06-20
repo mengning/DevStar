@@ -63,11 +63,11 @@ func ToAPIPullRequest(ctx context.Context, pr *issues_model.PullRequest, doer *u
 
 	repoUserPerm, err := cache.GetWithContextCache(ctx, cachegroup.RepoUserPermission, fmt.Sprintf("%d-%d", pr.BaseRepoID, doerID),
 		func(ctx context.Context, _ string) (access_model.Permission, error) {
-			return access_model.GetUserRepoPermission(ctx, pr.BaseRepo, doer)
+			return access_model.GetDoerRepoPermission(ctx, pr.BaseRepo, doer)
 		},
 	)
 	if err != nil {
-		log.Error("GetUserRepoPermission[%d]: %v", pr.BaseRepoID, err)
+		log.Error("GetDoerRepoPermission[%d]: %v", pr.BaseRepoID, err)
 		repoUserPerm.AccessMode = perm.AccessModeNone
 	}
 
@@ -97,6 +97,7 @@ func ToAPIPullRequest(ctx context.Context, pr *issues_model.PullRequest, doer *u
 		Created:        pr.Issue.CreatedUnix.AsTimePtr(),
 		Updated:        pr.Issue.UpdatedUnix.AsTimePtr(),
 		PinOrder:       util.Iif(apiIssue.PinOrder == -1, 0, apiIssue.PinOrder),
+		ContentVersion: apiIssue.ContentVersion,
 
 		// output "[]" rather than null to align to github outputs
 		RequestedReviewers:      []*api.User{},
@@ -146,7 +147,7 @@ func ToAPIPullRequest(ctx context.Context, pr *issues_model.PullRequest, doer *u
 
 	gitRepo, err := gitrepo.OpenRepository(ctx, pr.BaseRepo)
 	if err != nil {
-		log.Error("OpenRepository[%s]: %v", pr.BaseRepo.RepoPath(), err)
+		log.Error("OpenRepository[%s]: %v", pr.BaseRepo.RelativePath(), err)
 		return nil
 	}
 	defer gitRepo.Close()
@@ -181,9 +182,9 @@ func ToAPIPullRequest(ctx context.Context, pr *issues_model.PullRequest, doer *u
 	}
 
 	if pr.HeadRepo != nil && pr.Flow == issues_model.PullRequestFlowGithub {
-		p, err := access_model.GetUserRepoPermission(ctx, pr.HeadRepo, doer)
+		p, err := access_model.GetDoerRepoPermission(ctx, pr.HeadRepo, doer)
 		if err != nil {
-			log.Error("GetUserRepoPermission[%d]: %v", pr.HeadRepoID, err)
+			log.Error("GetDoerRepoPermission[%d]: %v", pr.HeadRepoID, err)
 			p.AccessMode = perm.AccessModeNone
 		}
 
@@ -192,7 +193,7 @@ func ToAPIPullRequest(ctx context.Context, pr *issues_model.PullRequest, doer *u
 
 		headGitRepo, err := gitrepo.OpenRepository(ctx, pr.HeadRepo)
 		if err != nil {
-			log.Error("OpenRepository[%s]: %v", pr.HeadRepo.RepoPath(), err)
+			log.Error("OpenRepository[%s]: %v", pr.HeadRepo.RelativePath(), err)
 			return nil
 		}
 		defer headGitRepo.Close()
@@ -235,7 +236,7 @@ func ToAPIPullRequest(ctx context.Context, pr *issues_model.PullRequest, doer *u
 		// Calculate diff
 		startCommitID = pr.MergeBase
 
-		diffShortStats, err := gitdiff.GetDiffShortStat(gitRepo, startCommitID, endCommitID)
+		diffShortStats, err := gitdiff.GetDiffShortStat(ctx, pr.BaseRepo, gitRepo, startCommitID, endCommitID)
 		if err != nil {
 			log.Error("GetDiffShortStat: %v", err)
 		} else {
@@ -248,7 +249,7 @@ func ToAPIPullRequest(ctx context.Context, pr *issues_model.PullRequest, doer *u
 	if len(apiPullRequest.Head.Sha) == 0 && len(apiPullRequest.Head.Ref) != 0 {
 		baseGitRepo, err := gitrepo.OpenRepository(ctx, pr.BaseRepo)
 		if err != nil {
-			log.Error("OpenRepository[%s]: %v", pr.BaseRepo.RepoPath(), err)
+			log.Error("OpenRepository[%s]: %v", pr.BaseRepo.RelativePath(), err)
 			return nil
 		}
 		defer baseGitRepo.Close()
@@ -334,9 +335,9 @@ func ToAPIPullRequests(ctx context.Context, baseRepo *repo_model.Repository, prs
 	}
 	defer gitRepo.Close()
 
-	baseRepoPerm, err := access_model.GetUserRepoPermission(ctx, baseRepo, doer)
+	baseRepoPerm, err := access_model.GetDoerRepoPermission(ctx, baseRepo, doer)
 	if err != nil {
-		log.Error("GetUserRepoPermission[%d]: %v", baseRepo.ID, err)
+		log.Error("GetDoerRepoPermission[%d]: %v", baseRepo.ID, err)
 		baseRepoPerm.AccessMode = perm.AccessModeNone
 	}
 
@@ -372,6 +373,7 @@ func ToAPIPullRequests(ctx context.Context, baseRepo *repo_model.Repository, prs
 			Created:        pr.Issue.CreatedUnix.AsTimePtr(),
 			Updated:        pr.Issue.UpdatedUnix.AsTimePtr(),
 			PinOrder:       util.Iif(apiIssue.PinOrder == -1, 0, apiIssue.PinOrder),
+			ContentVersion: apiIssue.ContentVersion,
 
 			AllowMaintainerEdit: pr.AllowMaintainerEdit,
 
@@ -435,9 +437,9 @@ func ToAPIPullRequests(ctx context.Context, baseRepo *repo_model.Repository, prs
 				apiPullRequest.Head.Ref = pr.HeadBranch
 			}
 			if pr.HeadRepoID != pr.BaseRepoID {
-				p, err := access_model.GetUserRepoPermission(ctx, pr.HeadRepo, doer)
+				p, err := access_model.GetDoerRepoPermission(ctx, pr.HeadRepo, doer)
 				if err != nil {
-					log.Error("GetUserRepoPermission[%d]: %v", pr.HeadRepoID, err)
+					log.Error("GetDoerRepoPermission[%d]: %v", pr.HeadRepoID, err)
 					p.AccessMode = perm.AccessModeNone
 				}
 				apiPullRequest.Head.Repository = ToRepo(ctx, pr.HeadRepo, p)
