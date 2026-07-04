@@ -17,14 +17,14 @@ No individual or entity may copy, modify, distribute, publicly display, publish,
 ## 2. 许可模型  
 **License Model**  
 
-### 2.1 个人使用（永久免费）  
-**Personal Use (Free in Perpetuity)**  
+### 2.1 社区版（永久免费）  
+**Community Edition (Free in Perpetuity)**  
 
-个人用户可永久免费使用本软件的预编译版本，限于非商业、个人学习、研究或评估目的。个人用户不得将本软件用于任何商业活动、生产环境或向第三方提供服务。  
-Individual users may use the pre-compiled version of the Software free of charge indefinitely, solely for non-commercial, personal learning, research, or evaluation purposes. Individual users may not use the Software for any commercial activities, production environments, or to provide services to third parties.  
+社区用户可永久免费使用本软件的预编译版本，限于非商业、个人学习、研究或评估目的。社区用户不得将本软件用于任何商业活动、生产环境或向第三方提供服务。  
+Community users may use the pre-compiled version of the Software free of charge indefinitely, solely for non-commercial, personal learning, research, or evaluation purposes. Community users may not use the Software for any commercial activities, production environments, or to provide services to third parties.  
 
-### 2.2 企业使用（年度许可）  
-**Enterprise Use (Annual License)**  
+### 2.2 企业版（年度许可）  
+**Enterprise Edition (Annual License)**  
 
 任何企业、组织、机构或商业实体（以下简称"企业用户"）使用本软件（包括但不限于预编译版本、源代码、集成系统、衍生作品等），均须按年获取许可并支付相应费用。  
 Any enterprise, organization, institution, or commercial entity (hereinafter referred to as "Enterprise User") using the Software (including but not limited to pre-compiled versions, source code, integrated systems, derivative works, etc.) must obtain an annual license and pay the corresponding fee.  
