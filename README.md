@@ -19,7 +19,7 @@ This project has been
 | Feature Type | Capabilities | License | Pricing Model |
 |-------------|-------------|---------|--------------|
 | **Core Features** | ✅ Git Repository Hosting<br>✅ Issues & Pull Requests<br>✅ Wiki & Project Boards<br>✅ Built-in CI/CD (GitHub Actions Compatible)<br>✅ Granular Permissions<br>✅ User & Organization Management<br>✅ Multi-Package Registry<br>✅ REST API<br>✅ Multi-DB Support / Lightweight Deployment | MIT License | Free & Open Source |
-| **Enhanced Features** | ✅ Built-in DevContainer Environment<br>✅ Built-in MCP Server<br>✅ Built-in AI Assistant<br>✅ Integration with AI CLI Tools (Claude Code/OpenCode/etc.)<br>✅ Integration with AI IDEs (Copilot/Cursor/Trae/etc.)<br>✅ One-click Actions Runner Deployment<br>✅ Online CI/CD Script Debugging<br>✅ Project Template Ecosystem (Best Practice Templates) | Commercial License | **Community Edition:** Free Forever <br>**Enterprise Edition:** Annual License |
+| **Enhanced Features** | ✅ Full-process AI-native support for R&D, including AI Issues, AI Actions, AI Coding, AI Code Review, AI Testing, etc.<br>✅ Built-in Agent orchestration solution (Agent Team)<br>✅ One-click deployment of mainstream LLMs<br>✅ Built-in MCP server<br>✅ Built-in AI-powered Chatbot<br>✅ Customizable integration with AI CLI tools such as Claude Code, Codex, OpenCode, etc.<br>✅ Customizable integration with AI IDEs such as VS Code, Cursor, Trae, etc.<br>✅ One-click deployment of Actions Runner (GitHub Actions-compatible) and online CI script debugging<br>✅ Built-in DevContainer Environment<br>✅ Project Template Ecosystem (Best Practice Templates) | Commercial License | **Community Edition:** Free Forever <br>**Enterprise Edition:** Annual License |
 
 ## Quick Start
 
