@@ -40,8 +40,10 @@ jobs:
 
       - name: Tag Docker Image for Target Registry  
         run: |  
+          docker tag devstarcn/${{ github.event.inputs.IMAGE_NAME }} devstarcn/${{ github.event.inputs.IMAGE_NAME }}-prev
           docker tag devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }}  devstarcn/${{ github.event.inputs.IMAGE_NAME }}  # 替换为目标镜像名称和标签
 
       - name: Push Docker Image to Target Registry  
         run: |  
+          docker push devstarcn/${{ github.event.inputs.IMAGE_NAME }}-prev
           docker push devstarcn/${{ github.event.inputs.IMAGE_NAME }}  # 替换为目标镜像名称和标签
