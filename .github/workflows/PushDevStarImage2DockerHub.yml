@@ -26,11 +26,6 @@ jobs:
           username: ${{ secrets.DEVSTAR_USERNAME }}  # 目标仓库用户名  
           password: ${{ secrets.DEVSTAR_PASSWORD }}  # 目标仓库密码  
           
-      - name: Pull DevStar Image  
-        run: |  
-          docker pull devstarcn/${{ github.event.inputs.IMAGE_NAME }}
-          docker pull devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }} 
-          
       - name: Log in to Target Docker Registry  
         uses: docker/login-action@v2  
         with:  
@@ -38,12 +33,11 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}  # 目标仓库用户名  
           password: ${{ secrets.DOCKER_PASSWORD }}  # 目标仓库密码  
 
-      - name: Tag Docker Image for Target Registry  
-        run: |  
-          docker tag devstarcn/${{ github.event.inputs.IMAGE_NAME }} devstarcn/${{ github.event.inputs.IMAGE_NAME }}-prev
-          docker tag devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }}  devstarcn/${{ github.event.inputs.IMAGE_NAME }}  # 替换为目标镜像名称和标签
-
-      - name: Push Docker Image to Target Registry  
-        run: |  
-          docker push devstarcn/${{ github.event.inputs.IMAGE_NAME }}-prev
-          docker push devstarcn/${{ github.event.inputs.IMAGE_NAME }}  # 替换为目标镜像名称和标签
+      # Copy registry to registry so every platform (linux/amd64, linux/arm64)
+      # reaches Docker Hub. docker pull/tag/push keeps only the runner's platform.
+      - name: Copy Image to Target Registry
+        run: |
+          # stop here, before -prev is touched, if the source image is missing
+          docker buildx imagetools inspect devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }} > /dev/null
+          docker buildx imagetools create --prefer-index=false -t devstarcn/${{ github.event.inputs.IMAGE_NAME }}-prev devstarcn/${{ github.event.inputs.IMAGE_NAME }}
+          docker buildx imagetools create --prefer-index=false -t devstarcn/${{ github.event.inputs.IMAGE_NAME }} devstar.cn/devstar/${{ github.event.inputs.IMAGE_NAME }}
